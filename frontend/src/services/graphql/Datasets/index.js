@@ -5,3 +5,4 @@ export * from './getDatasetSharedAssumeRoleUrl';
 export * from './listDatasetTables';
 export * from './listS3DatasetsOwnedByEnvGroup';
 export * from './removeDatasetStorageLocation';
+export * from './listS3ObjectKeys';

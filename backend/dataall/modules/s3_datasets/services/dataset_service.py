@@ -38,6 +38,7 @@ from dataall.modules.s3_datasets.services.dataset_permissions import (
     DATASET_ALL,
     DATASET_READ,
     IMPORT_DATASET,
+    GET_DATASET,
 )
 from dataall.modules.s3_datasets.db.dataset_repositories import DatasetRepository
 from dataall.modules.datasets_base.db.dataset_repositories import DatasetBaseRepository
@@ -556,3 +557,11 @@ class DatasetService:
         for table_uri in tables:
             GlossaryRepository.delete_glossary_terms_links(session, table_uri, 'DatasetTable')
         GlossaryRepository.delete_glossary_terms_links(session, dataset_uri, 'Dataset')
+
+    @staticmethod
+    @ResourcePolicyService.has_resource_permission(GET_DATASET)
+    def list_s3_object_keys(uri):
+        with get_context().db_engine.scoped_session() as session:
+            dataset = DatasetRepository.get_dataset_by_uri(session, uri)
+
+            return S3DatasetClient(dataset).list_object_keys(dataset.S3BucketName)

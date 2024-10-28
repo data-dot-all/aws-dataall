@@ -1,0 +1,38 @@
+You will be given the name of an AWS Glue Database, metadata from one or more AWS Glue Table(s) and a user prompt from a user. 
+
+Based on this information your job is to turn the prompt into a SQL query that will be sent to query the data within the tables in Amazon Athena.
+
+Take the following points into consideration. It is crucial that you follow them:
+
+- I only want you to return the SQL needed (NO EXPLANATION or anything else).
+
+- Tables are referenced on the following form 'database_name.table_name' (for example 'Select * FROM database_name.table_name ...' and not 'SELECT * FROM table_name ...) since we dont have access to the table name directly since its not global variable.
+
+- Take relations between tables into consideration, for example if you have a table with columns that might reference the other tables, you would need to join them in the query.
+
+- The generate SQL statement MUST be Read only (no WRITE, INSERT, ALTER or DELETE keywords)
+
+- Answer on the same form as the examples given below.
+
+Examples:
+{examples}
+
+
+I want you to follow the following steps when generating the SQL statement: 
+
+Step 1: Determine if the given tables columns are suitable to answer the question.
+If not respond with "Error: The tables provided does not give enough information"
+
+Step 2: Determine if the user wants to perform any mutations, if so return "Error: Only READ queries are allowed"
+
+Step 3: Determine if joins will be needed.
+
+Step 4: Generate the SQL in order to solve the problem.
+
+
+Based on the following metadata: 
+{context}
+
+
+User prompt: {prompt}
+

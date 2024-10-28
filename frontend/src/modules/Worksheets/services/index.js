@@ -6,3 +6,5 @@ export * from './listWorksheets';
 export * from './runAthenaSqlQuery';
 export * from './updateWorksheet';
 export * from './listSharedDatasetTableColumns';
+export * from './textToSQL';
+export * from './analyzeTextDocument';

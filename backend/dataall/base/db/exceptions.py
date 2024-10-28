@@ -181,3 +181,26 @@ class ResourceLockTimeout(Exception):
 
     def __str__(self):
         return f'{self.message}'
+
+
+class ResourceThresholdExceeded(Exception):
+    def __init__(self, username, action):
+        self.username = username
+        self.action = action
+        self.message = f"""
+                    An error occurred (ResourceThresholdExceeded) when calling {self.action} operation:
+                    Requests exceeded max daily invocation count for User: {self.username}
+                """
+
+    def __str__(self):
+        return f'{self.message}'
+
+
+class ModelGuardrailException(Exception):
+    def __init__(self, message):
+        self.message = f"""
+                    An error occurred (ModelGuardrailException) when invoking the model: {message}
+                """
+
+    def __str__(self):
+        return f'{self.message}'

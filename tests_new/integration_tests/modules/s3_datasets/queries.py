@@ -749,3 +749,17 @@ def get_table_profiling_run(client, tableUri):
     }
     response = client.query(query=query)
     return response.data.getDatasetTableProfilingRun
+
+
+def list_s3_object_keys(client, datasetUri):
+    query = {
+        'operationName': 'listS3ObjectKeys',
+        'variables': {'datasetUri': datasetUri},
+        'query': """
+            query listS3ObjectKeys($datasetUri: String!) {
+              listS3ObjectKeys(datasetUri: $datasetUri)
+            }
+                """,
+    }
+    response = client.query(query=query)
+    return response.data.listS3ObjectKeys

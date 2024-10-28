@@ -182,3 +182,67 @@ def update_worksheet(client, worksheet_uri, name='', description='', tags=[]):
     }
     response = client.query(query=query)
     return response.data.updateWorksheet
+
+
+def text_to_sql(client, prompt, environment_uri, worksheet_uri, database_name, table_names=[]):
+    query = {
+        'operationName': 'textToSQL',
+        'variables': {
+            'prompt': prompt,
+            'environmentUri': environment_uri,
+            'worksheetUri': worksheet_uri,
+            'databaseName': database_name,
+            'tableNames': table_names,
+        },
+        'query': """
+            query textToSQL(
+                  $prompt: String!
+                  $environmentUri: String!
+                  $worksheetUri: String!
+                  $databaseName: String!
+                  $tableNames: [String]
+                ) {
+                  textToSQL(
+                    prompt: $prompt
+                    environmentUri: $environmentUri
+                    worksheetUri: $worksheetUri
+                    databaseName: $databaseName
+                    tableNames: $tableNames
+                  )
+                }
+            """,
+    }
+    response = client.query(query=query)
+    return response.data.textToSQL
+
+
+def analyze_text_document(client, prompt, environment_uri, worksheet_uri, dataset_uri, key):
+    query = {
+        'operationName': 'analyzeTextDocument',
+        'variables': {
+            'prompt': prompt,
+            'environmentUri': environment_uri,
+            'worksheetUri': worksheet_uri,
+            'datasetUri': dataset_uri,
+            'key': key,
+        },
+        'query': """
+            query analyzeTextDocument(
+                  $prompt: String!
+                  $environmentUri: String!
+                  $worksheetUri: String!
+                  $datasetUri: String!
+                  $key: String!
+                ) {
+                  analyzeTextDocument(
+                    prompt: $prompt
+                    environmentUri: $environmentUri
+                    worksheetUri: $worksheetUri
+                    datasetUri: $datasetUri
+                    key: $key
+                  )
+                }
+            """,
+    }
+    response = client.query(query=query)
+    return response.data.analyzeTextDocument

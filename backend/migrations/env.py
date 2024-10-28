@@ -20,6 +20,7 @@ from dataall.modules.worksheets.db.worksheet_models import WorksheetQueryResult,
 from dataall.modules.omics.db.omics_models import OmicsWorkflow, OmicsRun
 from dataall.modules.metadata_forms.db.metadata_form_models import *
 from dataall.modules.redshift_datasets.db.redshift_models import RedshiftDataset, RedshiftTable, RedshiftConnection
+from dataall.core.resource_threshold.db.resource_threshold_models import ResourceThreshold
 # fmt: on
 # enable ruff-format back
 

@@ -1,0 +1,49 @@
+Example 1.
+User prompt: I want to get the average area of all listings
+
+Context: Based on on the following metadata 
+Database Name : dataall_homes_11p3uu8f
+Table Name: listings 
+Column Metadata: [{'Name': 'price', 'Type': 'bigint'}, {'Name': 'area', 'Type': 'bigint'}, {'Name': 'bedrooms', 'Type': 'bigint'}, {'Name': 'bathrooms', 'Type': 'bigint'}, {'Name': 'stories', 'Type': 'bigint'}, {'Name': 'mainroad', 'Type': 'string'}, {'Name': 'guestroom', 'Type': 'string'}, {'Name': 'basement', 'Type': 'string'}, {'Name': 'hotwaterheating', 'Type': 'string'}, {'Name': 'airconditioning', 'Type': 'string'}, {'Name': 'parking', 'Type': 'bigint'}, {'Name': 'prefarea', 'Type': 'string'}, {'Name': 'furnishingstatus', 'Type': 'string'}, {'Name': 'passengerid', 'Type': 'bigint'}, {'Name': 'survived', 'Type': 'bigint'}, {'Name': 'pclass', 'Type': 'bigint'}, {'Name': 'name', 'Type': 'string'}, {'Name': 'sex', 'Type': 'string'}, {'Name': 'age', 'Type': 'double'}, {'Name': 'sibsp', 'Type': 'bigint'}, {'Name': 'parch', 'Type': 'bigint'}, {'Name': 'ticket', 'Type': 'string'}, {'Name': 'fare', 'Type': 'double'}, {'Name': 'cabin', 'Type': 'string'}, {'Name': 'embarked', 'Type': 'string'}]
+Partition Metadata: []           
+
+Response: SELECT AVG(CAST(area AS DOUBLE)) FROM dataall_homes_11p3uu8f.listings WHERE area IS NOT NULL;
+
+
+Example 2.
+User prompt: I want to get the average of the 3 most expensive listings with less than 3 bedrooms
+
+Context: Based on on the following metadata         
+Database Name : dataall_homes_11p3uu8f
+Table Name: listings 
+Column Metadata: [{'Name': 'price', 'Type': 'bigint'}, {'Name': 'area', 'Type': 'bigint'}, {'Name': 'bedrooms', 'Type': 'bigint'}, {'Name': 'bathrooms', 'Type': 'bigint'}, {'Name': 'stories', 'Type': 'bigint'}, {'Name': 'mainroad', 'Type': 'string'}, {'Name': 'guestroom', 'Type': 'string'}, {'Name': 'basement', 'Type': 'string'}, {'Name': 'hotwaterheating', 'Type': 'string'}, {'Name': 'airconditioning', 'Type': 'string'}, {'Name': 'parking', 'Type': 'bigint'}, {'Name': 'prefarea', 'Type': 'string'}, {'Name': 'furnishingstatus', 'Type': 'string'}, {'Name': 'passengerid', 'Type': 'bigint'}, {'Name': 'survived', 'Type': 'bigint'}, {'Name': 'pclass', 'Type': 'bigint'}, {'Name': 'name', 'Type': 'string'}, {'Name': 'sex', 'Type': 'string'}, {'Name': 'age', 'Type': 'double'}, {'Name': 'sibsp', 'Type': 'bigint'}, {'Name': 'parch', 'Type': 'bigint'}, {'Name': 'ticket', 'Type': 'string'}, {'Name': 'fare', 'Type': 'double'}, {'Name': 'cabin', 'Type': 'string'}, {'Name': 'embarked', 'Type': 'string'}]
+Partition Metadata: []
+
+Response: SELECT AVG(price) AS average_price FROM (SELECT price FROM dataall_homes_11p3uu8f.listings WHERE bedrooms > 3 ORDER BY price DESC LIMIT 3);
+
+
+Example 3.
+User prompt: I want to see if any letter has been sent from 900 Somerville Avenue to 2 Finnigan Street and what is the content
+
+Context: Based on the following metadata  
+Database Name : dataall_packages_omf768qq
+Table name: packages
+Column Metadata: [{'Name': 'id', 'Type': 'bigint'}, {'Name': 'contents', 'Type': 'string'}, {'Name': 'from_address_id', 'Type': 'bigint'}, {'Name': 'to_address_id', 'Type': 'bigint'}]\n    
+Partition Metadata: []
+
+Database Name : dataall_packages_omf768qq
+Table name: addresses
+Column Metadata: [{'Name': 'id', 'Type': 'bigint'}, {'Name': 'address', 'Type': 'string'}, {'Name': 'type', 'Type': 'string'}]
+Partition Metadata: []
+
+Database Name : dataall_packages_omf768qq
+Table name: drivers    
+Column Metadata: [{'Name': 'id', 'Type': 'bigint'}, {'Name': 'name', 'Type': 'string'}]
+Partition Metadata: []
+
+Database Name : dataall_packages_omf768qq
+Table name: scans
+Column Metadata: [{'Name': 'id', 'Type': 'bigint'}, {'Name': 'driver_id', 'Type': 'bigint'}, {'Name': 'package_id', 'Type': 'bigint'}, {'Name': 'address_id', 'Type': 'bigint'}, {'Name': 'action', 'Type': 'string'}, {'Name': 'timestamp', 'Type': 'string'}]
+Partition Metadata: []
+
+Response: SELECT p.contents FROM dataall_packages_omf768qq.packages p JOIN dataall_packages_omf768qq.addresses a1 ON p.from_address_id = a1.id JOIN dataall_packages_omf768qq.addresses a2 ON p.to_address_id = a2.id WHERE a1.address = '900 Somerville Avenue' AND a2.address = '2 Finnigan Street';

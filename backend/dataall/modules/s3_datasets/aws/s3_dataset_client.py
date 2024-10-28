@@ -73,3 +73,17 @@ class S3DatasetClient:
                     f'Data.all Environment Pivot Role does not have s3:GetEncryptionConfiguration Permission for {dataset.S3BucketName} bucket: {e}'
                 )
             raise Exception(f'Cannot fetch the bucket encryption configuration for {dataset.S3BucketName}: {e}')
+
+    def list_object_keys(self, bucket_name):
+        try:
+            response = self._client.list_objects_v2(
+                Bucket=bucket_name,
+            )
+
+            def txt_or_pdf(s):
+                return s.split('.')[-1] in ['pdf', 'txt']
+
+            return [ob['Key'] for ob in response.get('Contents', []) if txt_or_pdf(ob['Key'])]
+        except ClientError as e:
+            logging.error(f'Failed to list objects in {bucket_name} : {e}')
+            raise e

@@ -3,7 +3,12 @@ import PropTypes from 'prop-types';
 import { useRef } from 'react';
 import { THEMES, useSettings } from 'design';
 
-export const SQLQueryEditor = ({ sql, setSqlBody }) => {
+export const SQLQueryEditor = ({
+  sql,
+  setSqlBody,
+  height = '19rem',
+  language = 'sql'
+}) => {
   const { settings } = useSettings();
   const valueGetter = useRef();
   function handleEditorDidMount(_valueGetter) {
@@ -22,9 +27,9 @@ export const SQLQueryEditor = ({ sql, setSqlBody }) => {
         options={{ minimap: { enabled: false } }}
         theme={settings.theme === THEMES.LIGHT ? 'light' : 'vs-dark'}
         inDiffEditor={false}
-        height="19rem"
+        height={height}
         editorDidMount={() => handleEditorDidMount()}
-        language="sql"
+        language={language}
         showPrintMargin
         showGutter
         highlightActiveLine

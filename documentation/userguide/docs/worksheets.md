@@ -45,7 +45,7 @@ coming from Athena will pop-up automatically.
 
 ![worksheets](pictures/worksheets/ws_joins.png#zoom#shadow)
 
-If you want to save the current query for later or for other users, click on the **save** icon (between the edit and the
+If you want to save the current query for later or for other users, click on the **save** icon (next to the edit and the
 delete buttons).
 
 !!! success "More than just SELECT"
@@ -55,4 +55,56 @@ delete buttons).
     for more information on AWS Athena SQL syntax.
 
 
+## :material-new-box: **Experimental Features: GenAI Powered Worksheets**
+
+As part of data.all >= v2.7 we introduced support for generative AI powered worksheet features. These features include both:
+
+1. Natural Language Querying (NLQ) of Structured Data
+2. Text Document Analysis of Unstructured Data
+
+These features are optionally enabled/disabled via feature flags specified in data.all's configuration.
+
+More details on how to use each of these features are below.
+
+### Natural Language Querying (NLQ) of Structured Data
+
+data.all offers a NLQ feature to significantly reduce the barrier to entry for non-technical business users who need to quickly and easily query data to make informed decisions.
+
+Given a prompt and a selection of tables, data.all NLQ feature will generate the corresponding SQL statement that data.all users can execute against the data they have access to in data.all's Worksheets module.
+
+To start generating SQL, data.all users can select the TextToSQL Tab in the Worksheets View:
+
+![worksheets_nlq](pictures/worksheets/ws_text_to_sql.png#zoom#shadow)
+
+Users select the Worksheet environment, database and one or more tables where the data of interest is stored. Then they introduce a prompt describing the operation they want to perform. For example, they could type something like "Give me the top 3 clients in the last 10 months". Once they send the request to generate the query, data.all will invoke Claude 3.5 Sonnet model using Amazon Bedrock to generate a response.
+
+To enrich the context of the genAI request, data.all fetches the Glue metadata of the tables and database and passes it to the LLM. Access to Glue is limited to the tables the user has access to, in other words, we control that only accessible glue tables are fetched.
+
+In addition, there are built in guardrails to avoid mutating SQL statements (i.e. WRITE, UPSERT, DELETE, etc.).
+
+data.all Admins can additionally limit the number of invocations run against these LLMs by specifying a `max_count_per_day` feature flag in data.all's configuration (please reference data.all's [Deployment Guide](https://data-dot-all.github.io/dataall/deploy-aws/#configjson) for more information).
+
+
+### Text Document Analysis of Unstructured Data
+
+For unstructured text documents, data.all offers a feature to start analyzing your data using natural language.
+
+Given a prompt and a selected text docuemnt in a S3 Dataset, data.all's Document Analyzer feature will generate a response displayed in the data.all Worksheet Editor. 
+
+!!! warning "Limitations of Document Analysis"
+    Currently data.all's Worksheet Document Analyzer is limited only to `.txt` and `.pdf` file extensions. Additionally, the feature is limited only to 
+    text documents which are explicitly owned by one of the user's teams (documents that are given access via data.all shares are not yet supported).
+
+
+To start analyzing your text documents, data.all users can select the Document Analyzer Tab in the Worksheets View:
+
+![worksheets_unstructured](pictures/worksheets/ws_analyze_txt_doc.png#zoom#shadow)
+
+Users select the Worksheet environment, S3 dataset bucket and S3 object key (.txt or .pdf file) where the data of interest is stored. Then they introduce a prompt describing the information they want from the text document. For example, they could type something like "Give me the most prevalent 3 themes across this document". Once they send the request, data.all will invoke Claude 3.5 Sonnet model using Amazon Bedrock to generate a response.
+
+data.all fetches the content of the S3 Object and passes it to the LLM along with the user prompt. Access to S3 is limited to the buckets the user owns.
+
+There are built in guardrails to reduce hallucinations by ensuring the selected S3 Object contains information pertaining to the user's prompt.
+
+data.all Admins can additionally limit the number of invocations run against these LLMs by specifying a `max_count_per_day` feature flag in data.all's configuration (please reference data.all's [Deployment Guide](https://data-dot-all.github.io/dataall/deploy-aws/#configjson) for more information).
 

@@ -448,6 +448,17 @@ def get_or_create_persistent_s3_dataset(
             if withContent:
                 create_tables(client, s3_dataset)
                 create_folders(client, s3_dataset)
+                creds = json.loads(generate_dataset_access_token(client, s3_dataset.datasetUri))
+                dataset_session = boto3.Session(
+                    aws_access_key_id=creds['AccessKey'],
+                    aws_secret_access_key=creds['SessionKey'],
+                    aws_session_token=creds['sessionToken'],
+                )
+                file_path = os.path.join(os.path.dirname(__file__), 'sample_data/folder1/txt_sample.txt')
+                s3_client = S3Client(dataset_session, s3_dataset.region)
+                s3_client.upload_file_to_prefix(
+                    local_file_path=file_path, s3_path=f'{s3_dataset.S3BucketName}/sessionFolderA'
+                )
 
         if s3_dataset.stack.status in ['CREATE_COMPLETE', 'UPDATE_COMPLETE']:
             return s3_dataset
@@ -551,3 +562,8 @@ def persistent_imported_kms_s3_dataset1(
         kms_alias=resource_name,
         glue_database=resource_name,
     )
+
+
+@pytest.fixture(scope='session')
+def persistent_s3_dataset1_folders(client1, persistent_s3_dataset1):
+    yield create_folders(client1, persistent_s3_dataset1)

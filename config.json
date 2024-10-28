@@ -77,7 +77,13 @@
             "active": true
         },
         "worksheets": {
-            "active": true
+            "active": true,
+            "features": {
+                "nlq": { 
+                    "active": true, 
+                    "max_count_per_day": 25 
+                }
+            }
         },
         "dashboards": {
             "active": true
