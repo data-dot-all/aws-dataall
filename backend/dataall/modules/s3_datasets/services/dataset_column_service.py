@@ -72,3 +72,11 @@ class DatasetColumnService:
 
         Worker.queue(engine=get_context().db_engine, task_ids=[task.taskUri])
         return column
+
+    @staticmethod
+    def batch_update_table_columns_description(columns):
+        for column_ in columns:
+            DatasetColumnService.update_table_column_description(
+                column_uri=column_['subitem_id'], description=column_['description']
+            )
+        return 'Success'

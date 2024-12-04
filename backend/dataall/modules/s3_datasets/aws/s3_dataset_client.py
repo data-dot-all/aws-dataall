@@ -73,3 +73,16 @@ class S3DatasetClient:
                     f'Data.all Environment Pivot Role does not have s3:GetEncryptionConfiguration Permission for {dataset.S3BucketName} bucket: {e}'
                 )
             raise Exception(f'Cannot fetch the bucket encryption configuration for {dataset.S3BucketName}: {e}')
+
+    def list_bucket_files(self, bucket_name, prefix):
+        dataset = self._dataset
+        try:
+            response = self._client.list_objects_v2(
+                Bucket=bucket_name,
+                Prefix=prefix,
+                ExpectedBucketOwner=dataset.AwsAccountId,
+                MaxKeys=1000,
+            )
+            return response.get('Contents', [])
+        except ClientError as e:
+            raise Exception(f'Cannot list the bucket files for {dataset.S3BucketName}: {e}')

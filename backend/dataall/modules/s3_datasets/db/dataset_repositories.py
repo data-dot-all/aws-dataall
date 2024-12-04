@@ -1,6 +1,7 @@
 import logging
 
-from sqlalchemy import and_, or_
+import sqlalchemy
+from sqlalchemy import and_, or_, literal
 from sqlalchemy.orm import Query
 from dataall.core.activity.db.activity_models import Activity
 from dataall.core.environment.db.environment_models import Environment
@@ -9,7 +10,7 @@ from dataall.base.db import paginate
 from dataall.base.db.exceptions import ObjectNotFound
 from dataall.modules.datasets_base.services.datasets_enums import ConfidentialityClassification, Language
 from dataall.core.environment.services.environment_resource_manager import EnvironmentResource
-from dataall.modules.s3_datasets.db.dataset_models import DatasetTable, S3Dataset
+from dataall.modules.s3_datasets.db.dataset_models import DatasetTable, S3Dataset, DatasetStorageLocation
 from dataall.base.utils.naming_convention import (
     NamingConventionService,
     NamingConventionPattern,
@@ -282,3 +283,41 @@ class DatasetRepository(EnvironmentResource):
         dataset.importedAdminRole = True if data.get('adminRoleName') else False
         if data.get('imported'):
             dataset.KmsAlias = data.get('KmsKeyAlias') if data.get('KmsKeyAlias') else 'SSE-S3'
+
+    @staticmethod
+    def query_dataset_tables_folders(session, dataset_uri):
+        q1 = (
+            session.query(
+                S3Dataset.datasetUri,
+                DatasetTable.tableUri.label('targetUri'),
+                DatasetTable.name.label('name'),
+                literal('Table', type_=sqlalchemy.types.String).label('targetType'),
+            )
+            .join(
+                DatasetTable,
+                DatasetTable.datasetUri == S3Dataset.datasetUri,
+            )
+            .filter(S3Dataset.datasetUri == dataset_uri)
+        )
+        q2 = (
+            session.query(
+                S3Dataset.datasetUri,
+                DatasetStorageLocation.locationUri.label('targetUri'),
+                DatasetStorageLocation.name.label('name'),
+                literal('Folder', type_=sqlalchemy.types.String).label('targetType'),
+            )
+            .join(
+                DatasetStorageLocation,
+                DatasetStorageLocation.datasetUri == S3Dataset.datasetUri,
+            )
+            .filter(S3Dataset.datasetUri == dataset_uri)
+        )
+        return q1.union(q2)
+
+    @staticmethod
+    def paginated_dataset_tables_folders(session, dataset_uri, data):
+        return paginate(
+            query=DatasetRepository.query_dataset_tables_folders(session, dataset_uri),
+            page=data.get('page', 1),
+            page_size=data.get('pageSize', 10),
+        ).to_dict()

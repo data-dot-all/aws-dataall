@@ -4,6 +4,8 @@ from dataall.modules.s3_datasets.api.dataset.resolvers import (
     get_dataset_assume_role_url,
     get_file_upload_presigned_url,
     list_datasets_owned_by_env_group,
+    list_dataset_tables_folders,
+    read_sample_data,
 )
 
 getDataset = gql.QueryField(
@@ -45,3 +47,18 @@ listS3DatasetsOwnedByEnvGroup = gql.QueryField(
     resolver=list_datasets_owned_by_env_group,
     test_scope='Dataset',
 )
+listDatasetTablesFolders = gql.QueryField(
+    name='listDatasetTablesFolders',
+    args=[
+        gql.Argument(name='datasetUri', type=gql.NonNullableType(gql.String)),
+        gql.Argument(name='filter', type=gql.Ref('DatasetFilter')),
+    ],
+    type=gql.Ref('DatasetItemsSearchResult'),
+    resolver=list_dataset_tables_folders,
+)
+listSampleData = gql.QueryField(
+    name='listSampleData',
+    args=[gql.Argument(name='tableUri', type=gql.NonNullableType(gql.String))],
+    type=gql.Ref('QueryPreviewResult'),  # basically returns nothing...?
+    resolver=read_sample_data,
+)  # return the data -> user invokes generateMetadata again + sample data ; similar api exists

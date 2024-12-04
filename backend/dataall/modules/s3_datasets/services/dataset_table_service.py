@@ -3,6 +3,9 @@ import logging
 from dataall.base.context import get_context
 from dataall.core.permissions.services.resource_policy_service import ResourcePolicyService
 from dataall.core.permissions.services.tenant_policy_service import TenantPolicyService
+
+##TODO
+##from dataall.core.resource_threshold.services.resource_threshold_service import ResourceThresholdService
 from dataall.modules.catalog.db.glossary_repositories import GlossaryRepository
 from dataall.core.environment.services.environment_service import EnvironmentService
 from dataall.modules.s3_datasets.aws.athena_table_client import AthenaTableClient
@@ -29,6 +32,9 @@ from dataall.modules.s3_datasets.services.dataset_permissions import (
 from dataall.modules.s3_datasets.services.dataset_service import DatasetService
 from dataall.base.utils import json_utils
 from dataall.base.db import exceptions
+from dataall.modules.s3_datasets.aws.bedrock_metadata_client import BedrockClient
+from dataall.modules.s3_datasets.db.dataset_column_repositories import DatasetColumnRepository
+
 
 log = logging.getLogger(__name__)
 
@@ -183,3 +189,24 @@ class DatasetTableService:
         ResourcePolicyService.delete_resource_policy(
             session=session, group=None, resource_uri=table_uri, resource_type=DatasetTable.__name__
         )
+
+    @staticmethod
+    @ResourcePolicyService.has_resource_permission(UPDATE_DATASET_TABLE)
+    # @ResourceThresholdService.check_invocation_count(
+    #     'metadata', 'modules.s3_datasets.features.generate_metadata_ai.max_count_per_day'
+    # )
+    def generate_metadata_for_table(uri, metadata_types, sample_data):
+        context = get_context()
+        with context.db_engine.scoped_session() as session:
+            table = DatasetTableRepository.get_dataset_table_by_uri(session, uri)
+            table_columns = DatasetColumnRepository.get_table_info_metadata_generation(session, table.tableUri)
+            metadata = BedrockClient().invoke_model_table_metadata(
+                table=table, columns=table_columns, metadata_types=metadata_types, sample_data=sample_data
+            )
+            columns_metadata = metadata.get('columns_metadata')
+            table_metadata = metadata.pop('columns_metadata')
+
+            return [{'targetUri': uri, 'targetType': 'Table' | table_metadata}] + [
+                {'targetUri': key, 'targetType': 'Table_Column', 'description': value}
+                for key, value in columns_metadata.items()
+            ]

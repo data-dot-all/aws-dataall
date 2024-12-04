@@ -47,6 +47,7 @@ ModifyDatasetInput = gql.InputType(
     ],
 )
 
+
 DatasetPresignedUrlInput = gql.InputType(
     name='DatasetPresignedUrlInput',
     arguments=[
@@ -57,6 +58,14 @@ DatasetPresignedUrlInput = gql.InputType(
 
 
 CrawlerInput = gql.InputType(name='CrawlerInput', arguments=[gql.Argument(name='prefix', type=gql.String)])
+
+TableSampleData = gql.InputType(
+    name='TableSampleData',
+    arguments=[
+        gql.Field(name='fields', type=gql.ArrayType(gql.String)),
+        gql.Field(name='rows', type=gql.ArrayType(gql.String)),
+    ],
+)
 
 ImportDatasetInput = gql.InputType(
     name='ImportDatasetInput',

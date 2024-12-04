@@ -42,7 +42,13 @@ function isFeatureEnabled(moduleKey, featureKey) {
     config.modules[moduleKey]['features'] !== undefined &&
     config.modules[moduleKey]['features'][featureKey] !== undefined
   ) {
-    return config.modules[moduleKey]['features'][featureKey];
+    if (
+      config.modules[moduleKey]['features'][featureKey]['active'] !== undefined
+    ) {
+      return config.modules[moduleKey]['features'][featureKey]['active'];
+    } else {
+      return config.modules[moduleKey]['features'][featureKey];
+    }
   }
   return false;
 }

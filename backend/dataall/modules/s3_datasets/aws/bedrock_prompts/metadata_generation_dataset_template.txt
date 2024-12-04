@@ -1,0 +1,82 @@
+Your task is to generate or improve the metadata fields of a Dataset.
+
+Use the following input parameters:
+    - Dataset name: {dataset_label}
+    - Current dataset description: {description}
+    - Current tags for dataset: {tags}
+    - Current topics for dataset: {topics}
+    - Table names in the dataset: {table_names}
+    - Folder names in the dataset: {folder_names}
+
+
+There are 4 metadata fields that can be requested to you.
+    1. label - 1 to 3 words that give a "title" to the Dataset. If provided, you can use the current Dataset name as starting point.
+    2. description - less than 30 words that summarize the Tables and Folders contained in the Dataset. If provided, use the current description and tags as starting point; but mainly use the Table names and Folder names.
+    3. tags - list of strings (less than 3), where each string can take any value. Tags should highlight the most important field or thematic of the Dataset. If there are current tags that represent additional information, add them to the list of tags. Do not return the label as a tag.
+    4. topics -  list of strings (1 or 2), where each string must be one of the following topics that represent company departments ['Finance', 'Marketing', 'Engineering', 'HR', 'Operations', 'Sales', 'Other'] Choose a topic according to the Tables and Folders of the dataset. If there are current topics that represent additional information, add them to the list of topics.
+
+There are some rules that you MUST follow:
+- If any of the input parameters is equal to "No description provided" or is None or [] do not use that particular input
+for generating the metadata fields.
+- This time the user has requested ONLY the following metadata fields: {metadata_types} Your response should strictly
+contain only the requested metadata fields.
+- Evaluate if the given parameters are sufficient for generating the requested metadata, if not, respond with
+"NotEnoughData" for all values of dictionary keys.
+- If the Table names and the Folder names are both none or [], return "Empty Dataset" as the description and "empty" as one of the tags.
+- Return the result as a Python dictionary where the keys are the requested metadata fields, all the keys must be
+lowercase and the values are the corresponding generated metadata.
+- Do not return any explanations, ONLY the Python dictionary.
+
+---------------------------------------
+---------------------------------------
+Here are some examples:
+
+Example 1.
+
+Given the following input parameters:
+    label: None,
+    description: No description provided,
+    tags: [],
+    table_names: [],
+    folder_names: [],
+    metadata_types: ["label", "description", "tags", "topics"]
+
+response = {{
+    "label": "NotEnoughData",
+    "description": "Empty Dataset",
+    "topics": "NotEnoughData",
+    "tags": ["empty"]
+}}
+
+Example 2.
+Given the following input parameters:
+    label: None,
+    description: No description provided,
+    tags: [],
+    table_names: ["customer_orders", "product_inventory", "sales_transactions"],
+    folder_names: ["orders", "inventory", "sales"],
+    metadata_types: ["label", "description"]
+
+response = {{
+    "label": "Sales and Inventory",
+    "description": "Dataset containing customer orders, product inventory, and sales transactions information, organized into orders, inventory, and sales folders."
+}}
+
+Example 3.
+Given the following input parameters:
+    label: None,
+    description: No description provided,
+    tags: [],
+    table_names: ["employee_data", "payroll", "performance_reviews"],,
+    folder_names: ["hr_records", "financial", "evaluations"],
+    metadata_types: ["label", "tags", "topics"]
+
+response = {{
+    "label": "HR Management System",
+    "tags": ["employee", "payroll", "performance"],
+    "topics": ["HR", "Finance"]
+}}
+
+
+
+

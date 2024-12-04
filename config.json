@@ -58,7 +58,11 @@
                 "preview_data": true,
                 "glue_crawler": true,
                 "metrics_data": true,
-                "show_stack_logs": "enabled"
+                "show_stack_logs": "enabled",
+                "generate_metadata_ai": {
+                    "active": true,
+                    "max_count_per_day": 25
+                }
             }
         },
         "shares_base": {

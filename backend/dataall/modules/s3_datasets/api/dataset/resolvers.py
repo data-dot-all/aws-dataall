@@ -1,5 +1,5 @@
 import logging
-
+import re
 from dataall.base.api.context import Context
 from dataall.base.feature_toggle_checker import is_feature_enabled
 from dataall.base.utils.expiration_util import Expiration
@@ -11,6 +11,9 @@ from dataall.base.db.exceptions import RequiredParameter, InvalidInput
 from dataall.modules.s3_datasets.db.dataset_models import S3Dataset
 from dataall.modules.datasets_base.services.datasets_enums import DatasetRole, ConfidentialityClassification
 from dataall.modules.s3_datasets.services.dataset_service import DatasetService
+from dataall.modules.s3_datasets.services.dataset_table_service import DatasetTableService
+from dataall.modules.s3_datasets.services.dataset_location_service import DatasetLocationService
+from dataall.modules.s3_datasets.services.dataset_enums import MetadataGenerationTargets, MetadataGenerationTypes
 
 log = logging.getLogger(__name__)
 
@@ -156,6 +159,49 @@ def list_datasets_owned_by_env_group(
     return DatasetService.list_datasets_owned_by_env_group(uri=environmentUri, group_uri=groupUri, data=filter)
 
 
+@is_feature_enabled('modules.s3_datasets.features.generate_metadata_ai.active')
+def generate_metadata(
+    context: Context,
+    source: S3Dataset,
+    resourceUri: str,
+    targetType: str,
+    metadataTypes: list,
+    tableSampleData: dict = {},
+):
+    RequestValidator.validate_uri(param_name='resourceUri', param_value=resourceUri)
+    if any(metadata_type not in [item.value for item in MetadataGenerationTypes] for metadata_type in metadataTypes):
+        raise InvalidInput(
+            'metadataType',
+            metadataTypes,
+            f'a list of allowed values {[item.value for item in MetadataGenerationTypes]}',
+        )
+    if targetType == MetadataGenerationTargets.S3_Dataset.value:
+        return DatasetService.generate_metadata_for_dataset(uri=resourceUri, metadata_types=metadataTypes)
+    elif targetType == MetadataGenerationTargets.Table.value:
+        return DatasetTableService.generate_metadata_for_table(
+            uri=resourceUri, metadata_types=metadataTypes, sample_data=tableSampleData
+        )
+    elif targetType == MetadataGenerationTargets.Folder.value:
+        return DatasetLocationService.generate_metadata_for_folder(uri=resourceUri, metadata_types=metadataTypes)
+    else:
+        raise Exception('Unsupported target type for metadata generation')
+
+
+def read_sample_data(context: Context, source: S3Dataset, tableUri: str):
+    RequestValidator.validate_uri(param_name='tableUri', param_value=tableUri)
+    return DatasetTableService.preview(uri=tableUri)
+
+
+def update_dataset_metadata(context: Context, source: S3Dataset, resourceUri: str):
+    return DatasetService.update_dataset(uri=resourceUri, data=input)
+
+
+def list_dataset_tables_folders(context: Context, source: S3Dataset, datasetUri: str, filter: dict = None):
+    if not filter:
+        filter = {}
+    return DatasetService.list_dataset_tables_folders(uri=datasetUri, filter=filter)
+
+
 class RequestValidator:
     @staticmethod
     def validate_creation_request(data):
@@ -198,6 +244,18 @@ class RequestValidator:
                 'Expiration Setting',
                 data.get('expirySetting'),
                 'is of invalid type',
+            )
+
+    @staticmethod
+    def validate_uri(param_name: str, param_value: str):
+        if not param_value:
+            raise RequiredParameter(param_name)
+        pattern = r'^[a-z0-9]{8}$'
+        if not re.match(pattern, param_value):
+            raise InvalidInput(
+                param_name=param_name,
+                param_value=param_value,
+                constraint='8 characters long and contain only lowercase letters and numbers',
             )
 
     @staticmethod

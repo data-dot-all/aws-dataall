@@ -18,3 +18,11 @@ DatasetTableColumnInput = gql.InputType(
         gql.Argument('topics', gql.Integer),
     ],
 )
+SubitemDescription = gql.InputType(
+    name='SubitemDescriptionInput',
+    arguments=[
+        gql.Argument(name='label', type=gql.String),
+        gql.Argument(name='description', type=gql.String),
+        gql.Argument(name='subitem_id', type=gql.String),
+    ],
+)

@@ -41,3 +41,9 @@ def update_table_column(context: Context, source, columnUri: str = None, input: 
 
     description = input.get('description', 'No description provided')
     return DatasetColumnService.update_table_column_description(column_uri=columnUri, description=description)
+
+
+def batch_update_table_columns_description(context: Context, source, columns):
+    if columns is None:
+        return None
+    return DatasetColumnService.batch_update_table_columns_description(columns=columns)

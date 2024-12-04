@@ -1,5 +1,9 @@
 from dataall.base.api import gql
-from dataall.modules.s3_datasets.api.table_column.resolvers import sync_table_columns, update_table_column
+from dataall.modules.s3_datasets.api.table_column.resolvers import (
+    sync_table_columns,
+    update_table_column,
+    batch_update_table_columns_description,
+)
 
 syncDatasetTableColumns = gql.MutationField(
     name='syncDatasetTableColumns',
@@ -17,4 +21,10 @@ updateDatasetTableColumn = gql.MutationField(
     ],
     type=gql.Ref('DatasetTableColumn'),
     resolver=update_table_column,
+)
+batchUpdateDatasetTableColumn = gql.MutationField(
+    name='batchUpdateDatasetTableColumn',
+    args=[gql.Argument(name='columns', type=gql.ArrayType(gql.Ref('SubitemDescriptionInput')))],
+    type=gql.String,
+    resolver=batch_update_table_columns_description,
 )

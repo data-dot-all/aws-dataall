@@ -1,0 +1,61 @@
+Your task is to generate or improve the metadata fields of a Folder (S3 Prefix).
+
+Use the following input parameters:
+    - Folder name: {label},
+    - Current Folder description: {description}
+    - Current tags for Folder: {tags}
+    - Current topics for Folder: {topics}
+    - File names (files stored inside the folder): {file_names}
+
+
+There are 4 metadata fields that can be requested to you.
+    1. label - 1 to 3 words that give a "title" to the Folder. If provided, you can use the current Folder name as starting point.
+    2. description - less than 30 words that summarize the files contained in the Folder. If provided, use the current description and tags as starting point; but mainly use the file names.
+    3. tags - list of strings (less than 3), where each string can take any value. Tags should highlight the most important field or thematic of the Folder. If there are current tags that represent additional information, add them to the list of tags.
+    4. topics -  list of strings (1 or 2), where each string must be one of the following topics that represent company departments ['Finance', 'Marketing', 'Engineering', 'HR', 'Operations', 'Sales', 'Other'] Choose a topic according to the files contained in the Folder. If there are current topics that represent additional information, add them to the list of topics.
+
+There are some rules that you MUST follow:
+- If any of the input parameters is equal to "No description provided" or is None or [] do not use that particular input
+for generating the metadata fields.
+- This time the user has requested ONLY the following metadata fields: {metadata_types} Your response should strictly
+contain only the requested metadata fields.
+- Evaluate if the given parameters are sufficient for generating the requested metadata, if not, respond with
+"NotEnoughData" for all values of dictionary keys.
+- Return the result as a Python dictionary where the keys are the requested metadata fields, all the keys must be
+lowercase and the values are the corresponding generated metadata.
+
+
+---------------------------------------
+---------------------------------------
+Here are some examples:
+
+Example 1.
+
+Given the following input parameters:
+    Folder name: my-folder-1
+    Current Folder description: No description provided
+    Current tags for Folder: []
+    File names (files stored inside the folder): []
+    metadata_types: ["label", "description", "topics"]
+
+
+response = {
+    "label": "NotEnoughData",
+    "description": "NotEnoughData",
+    "topics": "NotEnoughData"
+}
+
+Example 2.
+Given the following input parameters:
+    Folder name: my-folder-2
+    Current Folder description: Demo folder with some sample data.
+    Current tags for Folder: ['demo']
+    File names (files stored inside the folder): ['sales_report_2024.pdf', 'sales_terminology.pdf', 'year_over_year_increase.png']
+    metadata_types: ["label", description", "tags"]
+
+response = {
+    "label": "Sales Report 2024",
+    "description": "This folder contains the report alongside terminology and graphs to describe the sales of 2024."
+    "tags": ["sales", "2024"]
+}
+
