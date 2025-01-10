@@ -479,7 +479,7 @@ class ShareObjectRepository:
     def get_all_active_shares_with_expiration(session):
         return (
             session.query(ShareObject)
-            .filter(and_(ShareObject.expiryDate.isnot(None), ShareObject.deleted.is_(None)))
+            .filter(and_(ShareObject.expiryDate.isnot(None), ShareObject.deleted.is_(None), ShareObject.status == 'Processed'))
             .all()
         )
 
