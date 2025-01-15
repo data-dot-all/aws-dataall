@@ -42,11 +42,18 @@ class ShareObjectRepository:
         )
 
     @staticmethod
-    def find_dataset_shares(session, dataset_uri):
-        return session.query(ShareObject).filter(ShareObject.datasetUri == dataset_uri).all()
+    def find_dataset_shares(session, dataset_uri: str, share_statues: List[str] = None):
+        query = session.query(ShareObject).filter(ShareObject.datasetUri == dataset_uri)
+
+        if share_statues:
+            query = query.filter(ShareObject.status.in_(share_statues))
+
+        return query.all()
 
     @staticmethod
-    def find_share_by_dataset_attributes(session, dataset_uri, dataset_owner, groups=[]):
+    def find_share_by_dataset_attributes(session, dataset_uri, dataset_owner, groups=None):
+        if groups is None:
+            groups = []
         share: ShareObject = (
             session.query(ShareObject)
             .filter(ShareObject.datasetUri == dataset_uri)
@@ -192,6 +199,16 @@ class ShareObjectRepository:
             query = query.filter(ShareObjectItem.status == status)
         if healthStatus:
             query = query.filter(ShareObjectItem.healthStatus == healthStatus)
+        return query.all()
+
+    @staticmethod
+    def get_share_object_with_health_status(session, health_status_list: List[str] = None):
+        query = (
+            session.query(ShareObject)
+            .join(ShareObjectItem, ShareObjectItem.shareUri == ShareObject.shareUri)
+            .filter(ShareObjectItem.healthStatus.in_(health_status_list))
+        )
+
         return query.all()
 
     @staticmethod
@@ -474,6 +491,11 @@ class ShareObjectRepository:
             .all()
         )
         return pending_shares
+
+    @staticmethod
+    def get_shares_with_statuses(session, status_list: List[str]):
+        query = session.query(ShareObject).filter(ShareObject.status.in_(status_list))
+        return query.all()
 
     @staticmethod
     def get_all_active_shares_with_expiration(session):

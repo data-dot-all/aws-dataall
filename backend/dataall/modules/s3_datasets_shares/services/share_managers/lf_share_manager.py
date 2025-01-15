@@ -9,6 +9,7 @@ from dataall.base.aws.quicksight import QuicksightClient
 from dataall.base.aws.sts import SessionHelper
 from dataall.base.db import exceptions
 from dataall.core.environment.services.environment_service import EnvironmentService
+from dataall.modules.notifications.services.admin_notifications import AdminNotificationService
 from dataall.modules.s3_datasets.db.dataset_models import DatasetTable
 from dataall.modules.s3_datasets_shares.aws.glue_client import GlueClient
 from dataall.modules.s3_datasets_shares.aws.lakeformation_client import LakeFormationClient
@@ -634,6 +635,11 @@ class LFShareManager:
         )
 
         S3ShareAlarmService().trigger_table_sharing_failure_alarm(table, self.share, self.target_environment)
+        AdminNotificationService().notify_admins_with_error_log(
+            process_error=f'Error occurred while processing glue tables share request for share with uri: {self.share.shareUri}',
+            process_name='Glue tables share processor',
+            error_logs=[str(error)],
+        )
         return True
 
     def handle_revoke_failure(
@@ -654,6 +660,34 @@ class LFShareManager:
             f'due to: {error}'
         )
         S3ShareAlarmService().trigger_revoke_table_sharing_failure_alarm(table, self.share, self.target_environment)
+        AdminNotificationService().notify_admins_with_error_log(
+            process_error=f'Error occurred while revoking glue tables share request for share with uri: {self.share.shareUri}',
+            process_name='Glue tables share processor',
+            error_logs=[str(error)],
+        )
+        return True
+
+    def handle_revoke_clean_up_failure(
+        self,
+        error: Exception,
+    ) -> True:
+        """
+        Handles share failure by raising an alarm to alarmsTopic
+        :param table: DatasetTable
+        :param error: share error
+        :return: True if alarm published successfully
+        """
+        logger.error(
+            f'Failed to clean up database permission or delete database '
+            f'from source account {self.source_environment.AwsAccountId}//{self.source_environment.region} '
+            f'with target account {self.target_environment.AwsAccountId}/{self.target_environment.region} '
+            f'due to: {error}'
+        )
+        AdminNotificationService().notify_admins_with_error_log(
+            process_error=f'Error occurred while revoking glue tables share request for share with uri: {self.share.shareUri} when cleaning database permissions',
+            process_name='Glue tables share processor',
+            error_logs=[str(error)],
+        )
         return True
 
     def handle_share_failure_for_all_tables(self, tables, error, share_item_status, reapply=False):

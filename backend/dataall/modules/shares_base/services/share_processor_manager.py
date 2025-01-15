@@ -19,7 +19,7 @@ class SharesProcessorInterface(ABC):
         ...
 
     @abstractmethod
-    def verify_shares(self) -> bool:
+    def verify_shares_health_status(self) -> bool:
         """Executes a series of actions to verify share items using the share manager. Returns True if the verifying was successful"""
         ...
 

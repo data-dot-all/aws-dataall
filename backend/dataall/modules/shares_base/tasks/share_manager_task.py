@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 
+from dataall.modules.notifications.services.admin_notifications import AdminNotificationService
 from dataall.modules.shares_base.services.sharing_service import SharingService
 from dataall.base.db import get_engine
 from dataall.base.loader import load_modules, ImportMode
@@ -25,4 +26,9 @@ if __name__ == '__main__':
 
     except Exception as e:
         log.error(f'Sharing task failed due to: {e}')
+        AdminNotificationService().notify_admins_with_error_log(
+            process_error=f'Error occurred while running sharing task for share with uri: {os.getenv("shareUri", "Share URI not available")}',
+            error_logs=[str(e)],
+            process_name='Sharing Service',
+        )
         raise e

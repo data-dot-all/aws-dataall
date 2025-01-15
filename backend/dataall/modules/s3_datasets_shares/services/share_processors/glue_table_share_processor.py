@@ -3,6 +3,7 @@ from typing import List
 from warnings import warn
 from datetime import datetime
 from dataall.core.environment.services.environment_service import EnvironmentService
+from dataall.modules.notifications.services.admin_notifications import AdminNotificationService
 from dataall.modules.shares_base.services.shares_enums import (
     ShareItemHealthStatus,
     ShareItemStatus,
@@ -350,11 +351,13 @@ class ProcessLakeFormationShare(SharesProcessorInterface):
                     f'Failed to clean-up database permissions or delete shared database {manager.shared_db_name} '
                     f'due to: {e}'
                 )
+                manager.handle_revoke_clean_up_failure(error=e)
                 success = False
             return success
 
-    def verify_shares(self) -> bool:
+    def verify_shares_health_status(self) -> bool:
         log.info('##### Verifying tables #######')
+        share_object_item_health_status = True
         if not self.tables:
             log.info('No tables to verify. Skipping...')
         else:
@@ -430,11 +433,12 @@ class ProcessLakeFormationShare(SharesProcessorInterface):
                         ' | '.join(manager.db_level_errors) + ' | ' + ' | '.join(manager.tbl_level_errors),
                         datetime.now(),
                     )
+                    share_object_item_health_status = False
                 else:
                     ShareStatusRepository.update_share_item_health_status(
                         self.session, share_item, ShareItemHealthStatus.Healthy.value, None, datetime.now()
                     )
-        return True
+        return share_object_item_health_status
 
     def cleanup_shares(self) -> bool:
         """

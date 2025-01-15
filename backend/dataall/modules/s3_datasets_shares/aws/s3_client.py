@@ -173,6 +173,8 @@ class S3Client:
                 else:
                     log.error(f'Failed to create bucket policy. MalformedPolicy: {policy}')
                     raise e
+            else:
+                raise e
         except Exception as e:
             log.error(f'Bucket policy created failed on bucket {bucket_name} of {self._account_id} : {e}')
             raise e

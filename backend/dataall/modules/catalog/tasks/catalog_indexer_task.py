@@ -8,6 +8,7 @@ from dataall.modules.catalog.indexers.base_indexer import BaseIndexer
 from dataall.base.db import get_engine
 from dataall.base.loader import load_modules, ImportMode
 from dataall.base.utils.alarm_service import AlarmService
+from dataall.modules.notifications.services.admin_notifications import AdminNotificationService
 
 log = logging.getLogger(__name__)
 
@@ -31,7 +32,14 @@ class CatalogIndexerTask:
                     CatalogIndexerTask._delete_old_objects(indexed_object_uris)
                 return len(indexed_object_uris)
         except Exception as e:
+            error_log = f'Error occurred while indexing objects during the cataloging task. Exception: {e}'
+            log.error(error_log)
             AlarmService().trigger_catalog_indexing_failure_alarm(error=str(e))
+            AdminNotificationService().notify_admins_with_error_log(
+                process_error='Exception occurred during cataloging task',
+                error_logs=[error_log],
+                process_name='Catalog Task',
+            )
             raise e
 
     @classmethod

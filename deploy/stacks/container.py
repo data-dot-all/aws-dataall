@@ -161,7 +161,7 @@ class ContainerStack(pyNestedClass):
             command=['python3.9', '-m', 'dataall.core.environment.tasks.env_stacks_updater'],
             container_id='container',
             ecr_repository=ecr_repository,
-            environment=self._create_env(),
+            environment=self.env_vars,
             image_tag=self._cdkproxy_image_tag,
             log_group=self.create_log_group(envname, resource_prefix, log_group_name='stacks-updater'),
             schedule_expression=Schedule.expression('cron(0 1 * * ? *)'),
@@ -207,6 +207,7 @@ class ContainerStack(pyNestedClass):
         self.add_share_reapplier_task()
         self.add_omics_fetch_workflows_task()
         self.add_persistent_email_reminders_task()
+        self.add_weekly_reminder_task()
         self.add_share_expiration_task()
 
     @run_if(['modules.s3_datasets.active', 'modules.dashboards.active'])
@@ -217,7 +218,7 @@ class ContainerStack(pyNestedClass):
             command=['python3.9', '-m', 'dataall.modules.catalog.tasks.catalog_indexer_task'],
             container_id=container_id,
             ecr_repository=self._ecr_repository,
-            environment=self._create_env(),
+            environment=self.env_vars,
             image_tag=self._cdkproxy_image_tag,
             log_group=self.create_log_group(self._envname, self._resource_prefix, log_group_name='catalog-indexer'),
             schedule_expression=Schedule.expression('rate(6 hours)'),
@@ -261,7 +262,7 @@ class ContainerStack(pyNestedClass):
             f'ShareManagementTaskContainer{self._envname}',
             container_name='container',
             image=ecs.ContainerImage.from_ecr_repository(repository=self._ecr_repository, tag=self._cdkproxy_image_tag),
-            environment=self._create_env(),
+            environment=self.env_vars,
             command=['python3.9', '-m', 'dataall.modules.shares_base.tasks.share_manager_task'],
             logging=ecs.LogDriver.aws_logs(
                 stream_prefix='task',
@@ -292,7 +293,7 @@ class ContainerStack(pyNestedClass):
             command=['python3.9', '-m', 'dataall.modules.shares_base.tasks.share_verifier_task'],
             container_id='container',
             ecr_repository=self._ecr_repository,
-            environment=self._create_env(),
+            environment=self.env_vars,
             image_tag=self._cdkproxy_image_tag,
             log_group=self.create_log_group(self._envname, self._resource_prefix, log_group_name='share-verifier'),
             schedule_expression=Schedule.expression('rate(7 days)'),
@@ -321,7 +322,7 @@ class ContainerStack(pyNestedClass):
             f'ShareReapplierTaskContainer{self._envname}',
             container_name='container',
             image=ecs.ContainerImage.from_ecr_repository(repository=self._ecr_repository, tag=self._cdkproxy_image_tag),
-            environment=self._create_env(),
+            environment=self.env_vars,
             command=['python3.9', '-m', 'dataall.modules.shares_base.tasks.share_reapplier_task'],
             logging=ecs.LogDriver.aws_logs(
                 stream_prefix='task',
@@ -372,6 +373,33 @@ class ContainerStack(pyNestedClass):
         )
         self.ecs_task_definitions_families.append(persistent_email_reminders_task.task_definition.family)
 
+    # Config for persistent reminder will be updated in the Stage 2 for GH - 1420
+    @run_if(['modules.datasets_base.features.share_notifications.email.persistent_reminders'])
+    def add_weekly_reminder_task(self):
+        weekly_email_reminders_task, weekly_email_reminders_task_def = self.set_scheduled_task(
+            cluster=self.ecs_cluster,
+            command=[
+                'python3.9',
+                '-m',
+                'dataall.modules.notifications.tasks.weekly_digest_reminder',
+            ],
+            container_id='container',
+            ecr_repository=self._ecr_repository,
+            environment=self.env_vars,
+            image_tag=self._cdkproxy_image_tag,
+            log_group=self.create_log_group(
+                self._envname, self._resource_prefix, log_group_name='weekly-email-reminders'
+            ),
+            schedule_expression=Schedule.expression('cron(0 9 ? * 2 *)'),  # Run at 9:00 AM UTC every Monday
+            scheduled_task_id=f'{self._resource_prefix}-{self._envname}-weekly-email-reminders-schedule',
+            task_id=f'{self._resource_prefix}-{self._envname}-weekly-email-reminders',
+            task_role=self.task_role,
+            vpc=self._vpc,
+            security_group=self.scheduled_tasks_sg,
+            prod_sizing=self._prod_sizing,
+        )
+        self.ecs_task_definitions_families.append(weekly_email_reminders_task.task_definition.family)
+
     @run_if(['modules.s3_datasets.active'])
     def add_subscription_task(self):
         subscriptions_task, subscription_task_def = self.set_scheduled_task(
@@ -383,7 +411,7 @@ class ContainerStack(pyNestedClass):
             ],
             container_id='container',
             ecr_repository=self._ecr_repository,
-            environment=self._create_env(),
+            environment=self.env_vars,
             image_tag=self._cdkproxy_image_tag,
             log_group=self.create_log_group(self._envname, self._resource_prefix, log_group_name='subscriptions'),
             schedule_expression=Schedule.expression('rate(15 minutes)'),
@@ -403,7 +431,7 @@ class ContainerStack(pyNestedClass):
             command=['python3.9', '-m', 'dataall.modules.s3_datasets.tasks.tables_syncer'],
             container_id='container',
             ecr_repository=self._ecr_repository,
-            environment=self._create_env(),
+            environment=self.env_vars,
             image_tag=self._cdkproxy_image_tag,
             log_group=self.create_log_group(self._envname, self._resource_prefix, log_group_name='tables-syncer'),
             schedule_expression=Schedule.expression('rate(15 minutes)'),
@@ -423,7 +451,7 @@ class ContainerStack(pyNestedClass):
             command=['python3.9', '-m', 'dataall.modules.omics.tasks.omics_workflows_fetcher'],
             container_id='container',
             ecr_repository=self._ecr_repository,
-            environment=self._create_env(),
+            environment=self.env_vars,
             image_tag=self._cdkproxy_image_tag,
             log_group=self.create_log_group(
                 self._envname, self._resource_prefix, log_group_name='omics-workflows-fetcher'

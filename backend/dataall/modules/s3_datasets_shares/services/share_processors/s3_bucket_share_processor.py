@@ -3,6 +3,7 @@ from datetime import datetime
 from logging import exception
 from typing import List
 
+from dataall.modules.notifications.services.admin_notifications import AdminNotificationService
 from dataall.modules.shares_base.services.share_exceptions import PrincipalRoleNotFound
 from dataall.modules.s3_datasets_shares.services.share_managers import S3BucketShareManager
 from dataall.modules.s3_datasets_shares.services.s3_share_service import S3ShareService
@@ -158,7 +159,8 @@ class ProcessS3BucketShare(SharesProcessorInterface):
 
         return success
 
-    def verify_shares(self) -> bool:
+    def verify_shares_health_status(self) -> bool:
+        share_object_item_health_status = True
         log.info('##### Verifying S3 bucket share #######')
         if not self.buckets:
             log.info('No Buckets to verify. Skipping...')
@@ -192,11 +194,12 @@ class ProcessS3BucketShare(SharesProcessorInterface):
                     ' | '.join(manager.bucket_errors),
                     datetime.now(),
                 )
+                share_object_item_health_status = False
             else:
                 ShareStatusRepository.update_share_item_health_status(
                     self.session, sharing_item, ShareItemHealthStatus.Healthy.value, None, datetime.now()
                 )
-        return True
+        return share_object_item_health_status
 
     def cleanup_shares(self) -> bool:
         """

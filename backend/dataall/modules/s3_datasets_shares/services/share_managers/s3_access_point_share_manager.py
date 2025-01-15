@@ -6,6 +6,7 @@ from itertools import count
 from dataall.core.environment.services.environment_service import EnvironmentService
 from dataall.base.db import utils
 from dataall.base.aws.sts import SessionHelper
+from dataall.modules.notifications.services.admin_notifications import AdminNotificationService
 from dataall.modules.s3_datasets_shares.aws.s3_client import (
     S3ControlClient,
     S3Client,
@@ -744,6 +745,11 @@ class S3AccessPointShareManager:
         S3ShareAlarmService().trigger_folder_sharing_failure_alarm(
             self.target_folder, self.share, self.target_environment
         )
+        AdminNotificationService().notify_admins_with_error_log(
+            process_error='Error occurred while processing access point share request',
+            process_name='s3 access point share processor',
+            error_logs=[str(error)],
+        )
 
     def handle_revoke_failure(self, error: Exception) -> bool:
         """
@@ -760,6 +766,11 @@ class S3AccessPointShareManager:
         )
         S3ShareAlarmService().trigger_revoke_folder_sharing_failure_alarm(
             self.target_folder, self.share, self.target_environment
+        )
+        AdminNotificationService().notify_admins_with_error_log(
+            process_error='Error occurred while revoking access point share request',
+            process_name='s3 access point share processor',
+            error_logs=[str(error)],
         )
         return True
 

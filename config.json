@@ -32,7 +32,8 @@
                         "active": false,
                         "persistent_reminders": false,
                         "parameters": {
-                            "group_notifications": true
+                            "group_notifications": true,
+                            "admin_notifications": true
                         }
                     }
                 },

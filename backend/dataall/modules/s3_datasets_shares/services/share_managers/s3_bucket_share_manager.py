@@ -6,6 +6,7 @@ from dataall.base.aws.iam import IAM
 from dataall.base.aws.sts import SessionHelper
 from dataall.core.environment.db.environment_models import Environment
 from dataall.core.environment.services.environment_service import EnvironmentService
+from dataall.modules.notifications.services.admin_notifications import AdminNotificationService
 from dataall.modules.s3_datasets.db.dataset_models import DatasetBucket
 from dataall.modules.s3_datasets_shares.aws.kms_client import (
     KmsClient,
@@ -598,6 +599,11 @@ class S3BucketShareManager:
         S3ShareAlarmService().trigger_s3_bucket_sharing_failure_alarm(
             self.target_bucket, self.share, self.target_environment
         )
+        AdminNotificationService().notify_admins_with_error_log(
+            process_error=f'Error occurred while processing s3 bucket share request for share with uri: {self.share.shareUri}',
+            process_name='s3 bucket share processor',
+            error_logs=[str(error)],
+        )
         return True
 
     def handle_revoke_failure(self, error: Exception) -> bool:
@@ -615,6 +621,11 @@ class S3BucketShareManager:
         )
         S3ShareAlarmService().trigger_revoke_s3_bucket_sharing_failure_alarm(
             self.target_bucket, self.share, self.target_environment
+        )
+        AdminNotificationService().notify_admins_with_error_log(
+            process_error=f'Error occurred while revoking s3 bucket manager for share with uri: {self.share.shareUri}',
+            process_name='s3 bucket share processor',
+            error_logs=[str(error)],
         )
         return True
 

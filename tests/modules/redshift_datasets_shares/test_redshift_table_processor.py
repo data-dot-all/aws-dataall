@@ -226,7 +226,7 @@ def test_verify_redshift_cross_account_share_all_successful(
     mock_redshift_shares,
 ):
     # When
-    response = redshift_processor_cross_account.verify_shares()
+    response = redshift_processor_cross_account.verify_shares_health_status()
     # Then
     assert_that(response).is_true()
     mock_redshift_data_shares.return_value.check_datashare_exists.assert_called_with(
@@ -276,7 +276,7 @@ def test_verify_redshift_share_datashare_does_not_exist(
     # Given
     mock_redshift_data_shares.return_value.check_datashare_exists.return_value = False
     # When
-    response = redshift_processor_cross_account.verify_shares()
+    response = redshift_processor_cross_account.verify_shares_health_status()
     # Then
     with db.scoped_session() as session:
         item = ShareObjectRepository.get_share_item_by_uri(session, redshift_requested_table.shareItemUri)
@@ -290,7 +290,7 @@ def test_verify_redshift_schema_not_added_to_datashare(
     # Given
     mock_redshift_data_shares.return_value.check_schema_in_datashare.return_value = False
     # When
-    response = redshift_processor_cross_account.verify_shares()
+    response = redshift_processor_cross_account.verify_shares_health_status()
     # Then
     with db.scoped_session() as session:
         item = ShareObjectRepository.get_share_item_by_uri(session, redshift_requested_table.shareItemUri)
@@ -304,7 +304,7 @@ def test_verify_consumer_permissions_to_datashare_wrong_status_cross_account(
     # Given
     mock_redshift_shares.return_value.get_datashare_status.return_value = 'UNAUTHORIZED'
     # When
-    response = redshift_processor_cross_account.verify_shares()
+    response = redshift_processor_cross_account.verify_shares_health_status()
     with db.scoped_session() as session:
         item = ShareObjectRepository.get_share_item_by_uri(session, redshift_requested_table.shareItemUri)
         assert_that(item.healthStatus).is_equal_to(ShareItemHealthStatus.Unhealthy.value)
@@ -317,7 +317,7 @@ def test_verify_consumer_permissions_to_datashare_same_account(
     # Given
     mock_redshift_data_shares.return_value.check_consumer_permissions_to_datashare.return_value = False
     # When
-    response = redshift_processor_same_account.verify_shares()
+    response = redshift_processor_same_account.verify_shares_health_status()
     with db.scoped_session() as session:
         item = ShareObjectRepository.get_share_item_by_uri(session, redshift_requested_table_2.shareItemUri)
         assert_that(item.healthStatus).is_equal_to(ShareItemHealthStatus.Unhealthy.value)
@@ -331,7 +331,7 @@ def test_verify_redshift_share_database_does_not_exist(
     # Given
     mock_redshift_data_shares.return_value.check_database_exists.return_value = False
     # When
-    response = redshift_processor_cross_account.verify_shares()
+    response = redshift_processor_cross_account.verify_shares_health_status()
     # Then
     with db.scoped_session() as session:
         item = ShareObjectRepository.get_share_item_by_uri(session, redshift_requested_table.shareItemUri)
@@ -345,7 +345,7 @@ def test_verify_role_permissions_to_database(
     # Given
     mock_redshift_data_shares.return_value.check_role_permissions_in_database.return_value = False
     # When
-    response = redshift_processor_cross_account.verify_shares()
+    response = redshift_processor_cross_account.verify_shares_health_status()
     # Then
     with db.scoped_session() as session:
         item = ShareObjectRepository.get_share_item_by_uri(session, redshift_requested_table.shareItemUri)
@@ -361,7 +361,7 @@ def test_verify_external_schema_exists(
     # Given
     mock_redshift_data_shares.return_value.check_schema_exists.return_value = False
     # When
-    response = redshift_processor_cross_account.verify_shares()
+    response = redshift_processor_cross_account.verify_shares_health_status()
     # Then
     with db.scoped_session() as session:
         item = ShareObjectRepository.get_share_item_by_uri(session, redshift_requested_table.shareItemUri)
@@ -375,7 +375,7 @@ def test_verify_role_permissions_to_schema(
     # Given
     mock_redshift_data_shares.return_value.check_role_permissions_in_schema.return_value = False
     # When
-    response = redshift_processor_cross_account.verify_shares()
+    response = redshift_processor_cross_account.verify_shares_health_status()
     # Then
     with db.scoped_session() as session:
         item = ShareObjectRepository.get_share_item_by_uri(session, redshift_requested_table.shareItemUri)
@@ -389,7 +389,7 @@ def test_verify_table_not_added_to_datashare(
     # Given
     mock_redshift_data_shares.return_value.check_table_in_datashare.return_value = False
     # When
-    response = redshift_processor_cross_account.verify_shares()
+    response = redshift_processor_cross_account.verify_shares_health_status()
     # Then
     with db.scoped_session() as session:
         item = ShareObjectRepository.get_share_item_by_uri(session, redshift_requested_table.shareItemUri)

@@ -136,18 +136,23 @@ class DatasetTableService:
     @staticmethod
     def sync_existing_tables(session, uri, glue_tables=None):
         dataset: S3Dataset = DatasetRepository.get_dataset_by_uri(session, uri)
+        updated_table_status_map = {}
         if dataset:
             existing_tables = DatasetTableRepository.find_dataset_tables(session, uri)
             existing_table_names = [e.GlueTableName for e in existing_tables]
             existing_dataset_tables_map = {t.GlueTableName: t for t in existing_tables}
 
-            DatasetTableRepository.update_existing_tables_status(existing_tables, glue_tables)
+            updated_table_status_map = DatasetTableRepository.update_existing_tables_status(
+                existing_tables, glue_tables
+            )
             log.info(f'existing_tables={glue_tables}')
+
             for table in glue_tables:
                 if table['Name'] not in existing_table_names:
                     log.info(f'Storing new table: {table} for dataset db {dataset.GlueDatabaseName}')
                     updated_table = DatasetTableRepository.create_synced_table(session, dataset, table)
                     DatasetTableService._attach_dataset_table_permission(session, dataset, updated_table.tableUri)
+                    updated_table_status_map[updated_table.GlueTableName] = 'Newly Added'
                 else:
                     log.info(f'Updating table: {table} for dataset db {dataset.GlueDatabaseName}')
                     updated_table: DatasetTable = existing_dataset_tables_map.get(table['Name'])
@@ -155,7 +160,8 @@ class DatasetTableService:
 
                 DatasetTableRepository.sync_table_columns(session, updated_table, table)
 
-        return True
+        log.debug(f'Updated tables map: {updated_table_status_map}')
+        return updated_table_status_map
 
     @staticmethod
     def _attach_dataset_table_permission(session, dataset: S3Dataset, table_uri):

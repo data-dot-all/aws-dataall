@@ -1,6 +1,7 @@
 import logging
 import enum
 import os
+from typing import List
 
 from dataall.base.config import config
 from dataall.core.tasks.db.task_models import Task
@@ -24,6 +25,9 @@ class DataSharingNotificationType(enum.Enum):
     SHARE_OBJECT_EXTENSION_REJECTED = 'SHARE_OBJECT_EXTENSION_REJECTED'
     SHARE_OBJECT_REJECTED = 'SHARE_OBJECT_REJECTED'
     SHARE_OBJECT_PENDING_APPROVAL = 'SHARE_OBJECT_PENDING_APPROVAL'
+    SHARE_OBJECT_FAILED = 'SHARE_OBJECT_FAILED'
+    SHARE_OBJECT_UNHEALTHY = 'SHARE_OBJECT_UNHEALTHY'
+    SHARE_OBJECT_HEALTHY = 'SHARE_OBJECT_HEALTHY'
     DATASET_VERSION = 'DATASET_VERSION'
 
 
@@ -49,7 +53,7 @@ class ShareNotificationService:
         share_link_text = ''
         if os.environ.get('frontend_domain_url'):
             share_link_text = f'<br><br> Please visit data.all <a href="{os.environ.get("frontend_domain_url")}/console/shares/{self.share.shareUri}">share link </a> to take action or view more details'
-        msg = f'User {email_id} SUBMITTED share request for dataset {self.dataset.label} for principal {self.share.principalId}'
+        msg = f'User {email_id} SUBMITTED share request for dataset {self.dataset.label} for principal {self.share.principalRoleName}'
         subject = f'Data.all | Share Request Submitted for {self.dataset.label}'
         email_notification_msg = msg + share_link_text
 
@@ -64,7 +68,7 @@ class ShareNotificationService:
         share_link_text = ''
         if os.environ.get('frontend_domain_url'):
             share_link_text = f'<br><br> Please visit data.all <a href="{os.environ.get("frontend_domain_url")}/console/shares/{self.share.shareUri}">share link </a> to take action or view more details'
-        msg = f'User {email_id} SUBMITTED share extension request for dataset {self.dataset.label} for principal {self.share.principalId}'
+        msg = f'User {email_id} SUBMITTED share extension request for dataset {self.dataset.label} for principal {self.share.principalRoleName}'
         subject = f'Data.all | Share Extension Request Submitted for {self.dataset.label}'
         email_notification_msg = msg + share_link_text
 
@@ -86,7 +90,7 @@ class ShareNotificationService:
 
         msg_intro = f"""Dear User,
         This is a reminder that a share request for the dataset "{self.dataset.label}" submitted by {email_id} 
-        on behalf of principal "{self.share.principalId}" is still pending and has not been addressed.
+        on behalf of principal "{self.share.principalRoleName}" is still pending and has not been addressed.
         """
 
         msg_end = """Your prompt attention in this matter is greatly appreciated.
@@ -102,7 +106,7 @@ class ShareNotificationService:
             msg=msg_intro.replace('<br>', '').replace('<b>', '').replace('</b>', ''),
         )
 
-        self._create_and_send_email_notifications(
+        SESEmailNotificationService.create_and_send_email_notifications(
             subject=subject,
             msg=email_notification_msg,
             recipient_groups_list=[self.dataset.SamlAdminGroupName, self.dataset.stewards],
@@ -119,7 +123,7 @@ class ShareNotificationService:
             )
         msg = (
             f'User {email_id} APPROVED share request for dataset {self.dataset.label} '
-            f'for principal {self.share.principalId}'
+            f'for principal {self.share.principalRoleName}'
         )
         subject = f'Data.all | Share Request Approved for {self.dataset.label}'
         email_notification_msg = msg + share_link_text
@@ -141,7 +145,7 @@ class ShareNotificationService:
             )
         msg = (
             f'User {email_id} APPROVED share extension request for dataset {self.dataset.label} '
-            f'for principal {self.share.principalId}'
+            f'for principal {self.share.principalRoleName}'
         )
         subject = f'Data.all | Share Extension Request Approved for {self.dataset.label}'
         email_notification_msg = msg + share_link_text
@@ -158,13 +162,13 @@ class ShareNotificationService:
         if os.environ.get('frontend_domain_url'):
             share_link_text = f'<br><br> Please visit data.all <a href="{os.environ.get("frontend_domain_url")}/console/shares/{self.share.shareUri}">share link </a> to take action or view more details'
         if self.share.status == ShareObjectStatus.Rejected.value:
-            msg = f'User {email_id} REJECTED share request for dataset {self.dataset.label} for principal {self.share.principalId}'
+            msg = f'User {email_id} REJECTED share request for dataset {self.dataset.label} for principal {self.share.principalRoleName}'
             subject = f'Data.all | Share Request Rejected for {self.dataset.label}'
         elif self.share.status == ShareObjectStatus.Revoked.value:
-            msg = f'User {email_id} REVOKED share request for dataset {self.dataset.label} for principal {self.share.principalId}'
+            msg = f'User {email_id} REVOKED share request for dataset {self.dataset.label} for principal {self.share.principalRoleName}'
             subject = f'Data.all | Share Request Revoked for {self.dataset.label}'
         else:
-            msg = f'User {email_id} REJECTED/REVOKED share request for dataset {self.dataset.label} for principal {self.share.principalId}'
+            msg = f'User {email_id} REJECTED/REVOKED share request for dataset {self.dataset.label} for principal {self.share.principalRoleName}'
             subject = f'Data.all | Share Request Rejected / Revoked for {self.dataset.label}'
         email_notification_msg = msg + share_link_text
 
@@ -179,7 +183,7 @@ class ShareNotificationService:
         share_link_text = ''
         if os.environ.get('frontend_domain_url'):
             share_link_text = f'<br><br> Please visit data.all <a href="{os.environ.get("frontend_domain_url")}/console/shares/{self.share.shareUri}">share link </a> to take action or view more details'
-        msg = f'User {email_id} REJECTED share extension request for dataset {self.dataset.label} on principal {self.share.principalId}'
+        msg = f'User {email_id} REJECTED share extension request for dataset {self.dataset.label} on principal {self.share.principalRoleName}'
         subject = f'Data.all | Share Extension Request Rejected for {self.dataset.label}'
         email_notification_msg = msg + share_link_text
 
@@ -219,7 +223,7 @@ class ShareNotificationService:
             msg=msg_intro.replace('<br>', '').replace('<b>', '').replace('</b>', ''),
         )
 
-        self._create_and_send_email_notifications(
+        SESEmailNotificationService.create_and_send_email_notifications(
             subject=subject,
             msg=email_notification_msg,
             recipient_groups_list=[self.dataset.SamlAdminGroupName, self.dataset.stewards],
@@ -253,7 +257,103 @@ class ShareNotificationService:
             msg=msg_intro.replace('<br>', '').replace('<b>', '').replace('</b>', ''),
         )
 
-        self._create_and_send_email_notifications(
+        SESEmailNotificationService.create_and_send_email_notifications(
+            subject=subject, msg=email_notification_msg, recipient_groups_list=[self.share.groupUri]
+        )
+        return notifications
+
+    def notify_share_object_failed(self):
+        share_link_text = ''
+        if os.environ.get('frontend_domain_url'):
+            share_link_text = (
+                f'<br><br> Please visit data.all <a href="{os.environ.get("frontend_domain_url")}'
+                f'/console/shares/{self.share.shareUri}">share link </a> '
+                f'to take action or view more details'
+            )
+        msg = (
+            f'Share request made for dataset: <b>{self.dataset.label}</b> with requestor principal: <b>{self.share.principalRoleName}</b> failed. <br><br>'
+            f'Please reach out to the data.all team for troubleshooting problems with this share'
+        )
+        msg_footer = """
+        Regards,<br>
+        data.all team
+        """
+        subject = f'Data.all | Attention Required | Share failed for {self.dataset.label}'
+        email_notification_msg = msg + share_link_text + '<br><br>' + msg_footer
+
+        notifications = self.register_notifications(
+            notification_type=DataSharingNotificationType.SHARE_OBJECT_FAILED.value, msg=msg
+        )
+
+        SESEmailNotificationService.create_and_send_email_notifications(
+            subject=subject,
+            msg=email_notification_msg,
+            recipient_groups_list=[self.share.groupUri, self.dataset.SamlAdminGroupName, self.dataset.stewards],
+        )
+
+        return notifications
+
+    # Send notification when any of the share item gets into unhealthy state
+    def notify_share_object_items_unhealthy(self):
+        share_link_text = ''
+        if os.environ.get('frontend_domain_url'):
+            share_link_text = (
+                f'<br><br> Please visit data.all <a href="{os.environ.get("frontend_domain_url")}'
+                f'/console/shares/{self.share.shareUri}">share link </a> '
+                f'to take action or view more details'
+            )
+        msg = (
+            f'Hello Team, <br>'
+            f'Your share with share uri: <b>{self.share.shareUri}</b> has one or more unhealthy share items. <br><br>'
+            f"Once you visit your share link you can click on the Reapply button and this should correct your share and get it into an healthy state.<b> If this doesn't get your share in healthy state then please get in touch with data.all admins for your share."
+        )
+        msg_footer = """
+                Regards,<br>
+                data.all team
+                """
+        subject = f'Data.all | Attention Required | Share for {self.dataset.label} dataset in unhealthy state'
+        email_notification_msg = msg + share_link_text + '<br><br>' + msg_footer
+
+        notifications = self.register_notifications(
+            notification_type=DataSharingNotificationType.SHARE_OBJECT_UNHEALTHY.value,
+            msg=msg,
+            to_recipients=[self.share.groupUri],
+        )
+
+        SESEmailNotificationService.create_and_send_email_notifications(
+            subject=subject, msg=email_notification_msg, recipient_groups_list=[self.share.groupUri]
+        )
+
+        return notifications
+
+    # Send notifications when a share gets into healthy state.
+    # These notifications are sent when a share which was initially unhealthy goes into healthy state
+    def notify_share_object_items_healthy(self):
+        share_link_text = ''
+        if os.environ.get('frontend_domain_url'):
+            share_link_text = (
+                f'<br><br> Please visit data.all <a href="{os.environ.get("frontend_domain_url")}'
+                f'/console/shares/{self.share.shareUri}">share link </a> '
+                f'to take action or view more details'
+            )
+        msg = (
+            f'Hello Team, <br>'
+            f'Your share with share uri: <b>{self.share.shareUri}</b> is now in healthy state after reapplying the share.<br>'
+        )
+        msg_footer = """
+                Regards,<br>
+                data.all team
+                """
+        subject = f'Data.all | Share for {self.dataset.label} dataset now in healthy state'
+        email_notification_msg = msg + share_link_text + '<br><br>' + msg_footer
+
+        notifications = self.register_notifications(
+            notification_type=DataSharingNotificationType.SHARE_OBJECT_HEALTHY.value,
+            msg=msg,
+            to_recipients=[self.share.groupUri],
+        )
+
+        SESEmailNotificationService.create_and_send_email_notifications(
             subject=subject, msg=email_notification_msg, recipient_groups_list=[self.share.groupUri]
         )
         return notifications
@@ -266,15 +366,20 @@ class ShareNotificationService:
         targeted_users.append(self.share.groupUri)
         return targeted_users
 
-    def register_notifications(self, notification_type, msg):
+    def register_notifications(self, notification_type, msg, to_recipients: List[any] = None):
         """
         Notifications sent to:
+            if to_recipients is None
             - dataset.SamlAdminGroupName
             - dataset.stewards
             - share.groupUri
+            else
+            - to_recipients
         """
+        if not to_recipients:
+            to_recipients = self.notification_target_users
         notifications = []
-        for recipient in self.notification_target_users:
+        for recipient in to_recipients:
             log.info(f'Creating notification for {recipient}, msg {msg}')
             notifications.append(
                 NotificationRepository.create_notification(
@@ -328,33 +433,6 @@ class ShareNotificationService:
                         self.session.commit()
 
                         Worker.queue(engine=get_context().db_engine, task_ids=[notification_task.taskUri])
-                else:
-                    log.info(f'Notification type : {share_notification_config_type} is not active')
-        else:
-            log.info('Notifications are not active')
-
-    def _create_and_send_email_notifications(self, subject, msg, recipient_groups_list=None, recipient_email_ids=None):
-        """
-        Method to directly send email notification instead of creating an SQS Task
-        This approach is used while sending email notifications in an ECS task ( e.g. persistent email reminder task, share expiration task, etc )
-        Emails send to groups mentioned in recipient_groups_list and / or emails mentioned in recipient_email_ids
-        """
-        if recipient_groups_list is None:
-            recipient_groups_list = []
-        if recipient_email_ids is None:
-            recipient_email_ids = []
-
-        share_notification_config = config.get_property(
-            'modules.datasets_base.features.share_notifications', default=None
-        )
-        if share_notification_config:
-            for share_notification_config_type in share_notification_config.keys():
-                n_config = share_notification_config[share_notification_config_type]
-                if n_config.get('active', False) == True:
-                    if share_notification_config_type == 'email':
-                        SESEmailNotificationService.send_email_task(
-                            subject, msg, recipient_groups_list, recipient_email_ids
-                        )
                 else:
                     log.info(f'Notification type : {share_notification_config_type} is not active')
         else:
