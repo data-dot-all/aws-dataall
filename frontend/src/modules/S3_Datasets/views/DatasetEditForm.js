@@ -186,7 +186,7 @@ const DatasetEditForm = (props) => {
   async function submit(values, setStatus, setSubmitting, setErrors) {
     if (
       enableShareExpiration !== dataset.enableExpiration ||
-      values.expirationSetting !== dataset.expirationSetting ||
+      values.expirationSetting !== dataset.expirySetting ||
       values.minValidity !== dataset.expiryMinDuration ||
       values.maxValidity !== dataset.expiryMaxDuration
     ) {
