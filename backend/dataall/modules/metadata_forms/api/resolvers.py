@@ -6,10 +6,14 @@ from dataall.modules.metadata_forms.db.metadata_form_models import (
     MetadataFormField,
     AttachedMetadataForm,
     AttachedMetadataFormField,
+    MetadataFormEnforcementRule,
 )
 from dataall.modules.metadata_forms.services.attached_metadata_form_service import AttachedMetadataFormService
+from dataall.modules.metadata_forms.services.metadata_form_enforcement_service import MetadataFormEnforcementService
 from dataall.modules.metadata_forms.services.metadata_form_permissions import MANAGE_METADATA_FORMS
 from dataall.modules.metadata_forms.services.metadata_form_service import MetadataFormService, MetadataFormAccessService
+
+from typing import Protocol
 
 
 def create_metadata_form(context: Context, source, input):
@@ -56,7 +60,11 @@ def get_metadata_form(context: Context, source, uri):
     return MetadataFormService.get_metadata_form_by_uri(uri=uri)
 
 
-def resolve_metadata_form(context: Context, source: AttachedMetadataForm):
+class HasMetadataFormUri(Protocol):
+    metadataFormUri: str
+
+
+def resolve_metadata_form(context: Context, source: HasMetadataFormUri):
     return MetadataFormService.get_metadata_form_by_uri(source.metadataFormUri)
 
 
@@ -114,3 +122,31 @@ def get_entity_metadata_form_permissions(context: Context, source, entityUri):
 
 def list_metadata_form_versions(context: Context, source, uri):
     return MetadataFormService.list_metadata_form_versions(uri=uri)
+
+
+def create_mf_enforcement_rule(context: Context, source, input):
+    return MetadataFormEnforcementService.create_mf_enforcement_rule(uri=input.get('metadataFormUri'), data=input)
+
+
+def list_mf_enforcement_rules(context: Context, source, uri):
+    return MetadataFormEnforcementService.list_mf_enforcement_rules(uri=uri)
+
+
+def list_mf_affected_entities(context: Context, source, uri, filter):
+    return MetadataFormEnforcementService.paginate_mf_affected_entities(uri=uri, data=filter)
+
+
+def get_mf_rule_home_entity_name(context: Context, source: MetadataFormEnforcementRule):
+    return MetadataFormEnforcementService.resolve_home_entity(source.uri, source)
+
+
+def delete_mf_enforcement_rule(context: Context, source, uri, rule_uri):
+    return MetadataFormEnforcementService.delete_mf_enforcement_rule(uri=uri, rule_uri=rule_uri)
+
+
+def list_entity_types_with_scope(context: Context, source):
+    return MetadataFormEnforcementService.list_supported_entity_types()
+
+
+def list_affecting_rules(context: Context, source, entityUri, entityType):
+    return MetadataFormEnforcementService.get_rules_that_affect_entity(entity_type=entityType, entity_uri=entityUri)

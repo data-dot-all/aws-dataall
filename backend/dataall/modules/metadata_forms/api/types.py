@@ -9,6 +9,7 @@ from dataall.modules.metadata_forms.api.resolvers import (
     has_tenant_permissions_for_metadata_forms,
     resolve_metadata_form,
     resolve_metadata_form_field,
+    get_mf_rule_home_entity_name,
 )
 
 MetadataForm = gql.ObjectType(
@@ -34,7 +35,6 @@ MetadataForm = gql.ObjectType(
         ),
     ],
 )
-
 
 MetadataFormField = gql.ObjectType(
     name='MetadataFormField',
@@ -114,5 +114,68 @@ AttachedMetadataFormField = gql.ObjectType(
         gql.Field(name='field', type=gql.Ref('MetadataFormField'), resolver=resolve_metadata_form_field),
         gql.Field(name='value', type=gql.String),
         gql.Field(name='hasTenantPermissions', type=gql.Boolean, resolver=has_tenant_permissions_for_metadata_forms),
+    ],
+)
+
+MetadataFormEnforcementRule = gql.ObjectType(
+    name='MetadataFormEnforcementRule',
+    fields=[
+        gql.Field(name='uri', type=gql.String),
+        gql.Field(name='level', type=gql.String),
+        gql.Field(name='severity', type=gql.String),
+        gql.Field(name='homeEntity', type=gql.String),
+        gql.Field(name='homeEntityName', type=gql.String, resolver=get_mf_rule_home_entity_name),
+        gql.Field(
+            name='version',
+            type=gql.Integer,
+        ),
+        gql.Field(
+            name='metadataFormUri',
+            type=gql.String,
+        ),
+        gql.Field(name='entityTypes', type=gql.ArrayType(gql.String)),
+    ],
+)
+
+MFAffectedEntitiesSearchResult = gql.ObjectType(
+    name='MFAffectedEntitiesSearchResult',
+    fields=[
+        gql.Field(name='count', type=gql.Integer),
+        gql.Field(name='nodes', type=gql.ArrayType(gql.Ref('MFAffectedEntity'))),
+        gql.Field(name='pageSize', type=gql.Integer),
+        gql.Field(name='nextPage', type=gql.Integer),
+        gql.Field(name='pages', type=gql.Integer),
+        gql.Field(name='page', type=gql.Integer),
+        gql.Field(name='previousPage', type=gql.Integer),
+        gql.Field(name='hasNext', type=gql.Boolean),
+        gql.Field(name='hasPrevious', type=gql.Boolean),
+    ],
+)
+
+MFAffectedEntity = gql.ObjectType(
+    name='MFAffectedEntity',
+    fields=[
+        gql.Field(name='type', type=gql.String),
+        gql.Field(name='uri', type=gql.String),
+        gql.Field(name='name', type=gql.String),
+        gql.Field(name='owner', type=gql.String),
+        gql.Field(name='attached', type=gql.Ref('AttachedMetadataForm')),
+    ],
+)
+
+EntityTypeWithScope = gql.ObjectType(
+    name='EntityTypeWithScope',
+    fields=[
+        gql.Field(name='name', type=gql.String),
+        gql.Field(name='levels', type=gql.ArrayType(gql.String)),
+    ],
+)
+
+AffectingRules = gql.ObjectType(
+    name='AffectingRules',
+    fields=MetadataFormEnforcementRule.fields[:]
+    + [
+        gql.Field(name='attached', type=gql.String),
+        gql.Field(name='metadataFormName', type=gql.String),
     ],
 )

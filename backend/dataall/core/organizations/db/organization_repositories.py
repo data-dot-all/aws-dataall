@@ -131,3 +131,7 @@ class OrganizationRepository:
             .first()
         )
         return membership
+
+    @staticmethod
+    def query_all_active_organizations(session):
+        return session.query(models.Organization).filter(models.Organization.deleted.is_(None)).all()

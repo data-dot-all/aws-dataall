@@ -21,17 +21,17 @@ import {
   listAttachedMetadataForms,
   listEntityMetadataForms
 } from '../services';
-import { Defaults, PlusIcon } from '../../../design';
+import { Defaults, PlusIcon } from 'design';
 import CircularProgress from '@mui/material/CircularProgress';
-import { useClient } from '../../../services';
+import { useClient } from 'services';
 import { RenderedMetadataForm } from './renderedMetadataForm';
-import { SET_ERROR } from '../../../globalErrors';
+import { SET_ERROR } from 'globalErrors';
 import { AttachedFormCard } from './AttachedFormCard';
 import DoNotDisturbAltOutlinedIcon from '@mui/icons-material/DoNotDisturbAltOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 
 export const MetadataAttachment = (props) => {
-  const { entityType, entityUri } = props;
+  const { entityType, entityUri, affectingRules } = props;
   const client = useClient();
   const dispatch = useDispatch();
   const [selectedForm, setSelectedForm] = useState(null);
@@ -52,6 +52,7 @@ export const MetadataAttachment = (props) => {
   });
   const [addNewForm, setAddNewForm] = useState(false);
   const [availableForms, setAvailableForms] = useState([]);
+  const [missingRules, setMissingRules] = useState([]);
 
   const fetchAvailableForms = async () => {
     const response = await client.query(
@@ -79,6 +80,23 @@ export const MetadataAttachment = (props) => {
     setLoading(true);
     const response = await client.query(listAttachedMetadataForms(filter));
     if (!response.errors) {
+      response.data.listAttachedMetadataForms.nodes.forEach((form) => {
+        const r = affectingRules.find(
+          (r) => r.metadataFormUri === form.metadataForm.uri
+        );
+        if (r) {
+          form.required = r.severity;
+          form.required_version = r.version;
+        }
+      });
+      const missing = affectingRules.filter(
+        (r) =>
+          !response.data.listAttachedMetadataForms.nodes.find(
+            (form) => r.metadataFormUri === form.metadataForm.uri
+          )
+      );
+
+      setMissingRules([...missing]);
       setFormsList(response.data.listAttachedMetadataForms.nodes);
       if (
         response.data.listAttachedMetadataForms.nodes.length > 0 &&
@@ -191,7 +209,7 @@ export const MetadataAttachment = (props) => {
 
   return (
     <Grid container spacing={2} sx={{ height: 'calc(100vh - 320px)', mb: -5 }}>
-      <Grid item lg={3} xl={3} xs={6}>
+      <Grid item lg={6} xl={6} xs={12}>
         <Card sx={{ height: '100%' }}>
           {canEdit && (
             <>
@@ -217,6 +235,7 @@ export const MetadataAttachment = (props) => {
               <Autocomplete
                 disablePortal
                 options={availableForms}
+                value={selectedForm.name}
                 onChange={async (event, value) => {
                   if (value) {
                     setSelectedForm(value.form);
@@ -236,6 +255,69 @@ export const MetadataAttachment = (props) => {
               />
             </CardContent>
           )}
+          {missingRules.length > 0 &&
+            missingRules.map((rule) => (
+              <CardContent>
+                <Grid container spacing={2}>
+                  <Grid item lg={8} xl={8}>
+                    <Typography
+                      color="textPrimary"
+                      variant="subtitle2"
+                      sx={{
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        maxLines: 1
+                      }}
+                    >
+                      {rule.metadataFormName + ' v.' + rule.version}
+                    </Typography>
+                  </Grid>
+                  <Grid item lg={3} xl={3}>
+                    <Typography
+                      variant="subtitle2"
+                      sx={{
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        maxLines: 1,
+                        color: rule.severity === 'Mandatory' ? 'red' : 'orange'
+                      }}
+                    >
+                      {'Missing ' + rule.severity}
+                    </Typography>
+                  </Grid>
+                  <Grid item lg={1} xl={1}>
+                    {canEdit && (
+                      <PlusIcon
+                        size={15}
+                        sx={{ color: 'primary.main', opacity: 0.5 }}
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.opacity = 1;
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.opacity = 0.5;
+                        }}
+                        onClick={async () => {
+                          {
+                            setSelectedForm(
+                              availableForms.find(
+                                (form) => form.value === rule.metadataFormUri
+                              ).form
+                            );
+                            setEditMode(false);
+                            setAddNewForm(true);
+                            setValues({});
+                            await fetchFields(rule.metadataFormUri);
+                          }
+                        }}
+                      />
+                    )}
+                  </Grid>
+                </Grid>
+              </CardContent>
+            ))}
+
           {formsList.length > 0 ? (
             formsList.map((attachedForm) => (
               <CardContent
@@ -250,8 +332,8 @@ export const MetadataAttachment = (props) => {
                 <Grid container spacing={2}>
                   <Grid
                     item
-                    lg={10}
-                    xl={10}
+                    lg={8}
+                    xl={8}
                     onClick={async () => {
                       setSelectedAttachedForm(attachedForm);
                       setEditMode(false);
@@ -275,8 +357,29 @@ export const MetadataAttachment = (props) => {
                         attachedForm.version}
                     </Typography>
                   </Grid>
-
-                  <Grid item lg={2} xl={2}>
+                  <Grid item lg={3} xl={3}>
+                    {attachedForm.required && (
+                      <Typography
+                        variant="subtitle2"
+                        sx={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          maxLines: 1,
+                          color:
+                            attachedForm.required === 'Mandatory'
+                              ? 'red'
+                              : 'green'
+                        }}
+                      >
+                        {attachedForm.required}{' '}
+                        {attachedForm.version < attachedForm.required_version
+                          ? 'v. ' + attachedForm.required_version
+                          : ''}
+                      </Typography>
+                    )}
+                  </Grid>
+                  <Grid item lg={1} xl={1}>
                     {canEdit && (
                       <DeleteIcon
                         sx={{ color: 'primary.main', opacity: 0.5 }}
@@ -303,7 +406,7 @@ export const MetadataAttachment = (props) => {
           )}
         </Card>
       </Grid>
-      <Grid item lg={9} xl={9} xs={6}>
+      <Grid item lg={6} xl={6} xs={12}>
         {loadingFields && (
           <Box
             sx={{

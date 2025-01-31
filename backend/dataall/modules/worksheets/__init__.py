@@ -4,6 +4,7 @@ import logging
 from typing import Type, List
 
 from dataall.base.loader import ImportMode, ModuleInterface
+from dataall.modules.worksheets.db.worksheet_models import Worksheet
 
 log = logging.getLogger(__name__)
 
@@ -17,10 +18,16 @@ class WorksheetApiModuleInterface(ModuleInterface):
 
     def __init__(self):
         from dataall.core.environment.services.environment_resource_manager import EnvironmentResourceManager
+        from dataall.core.metadata_manager.metadata_form_entity_manager import (
+            MetadataFormEntityManager,
+            MetadataFormEntityTypes,
+        )
+
         from dataall.modules.worksheets.db.worksheet_repositories import WorksheetRepository
         import dataall.modules.worksheets.api
 
         EnvironmentResourceManager.register(WorksheetRepository())
+        MetadataFormEntityManager.register(Worksheet, MetadataFormEntityTypes.Worksheets.value)
         log.info('API of worksheets has been imported')
 
     @staticmethod

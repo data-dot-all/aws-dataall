@@ -4,6 +4,7 @@ import logging
 from typing import List, Type, Set
 
 from dataall.base.loader import ModuleInterface, ImportMode
+from dataall.modules.s3_datasets.db.dataset_models import DatasetBucket
 
 log = logging.getLogger(__name__)
 
@@ -32,6 +33,10 @@ class DatasetApiModuleInterface(ModuleInterface):
     def __init__(self):
         # these imports are placed inside the method because they are only related to GraphQL api.
         from dataall.core.stacks.db.target_type_repositories import TargetType
+        from dataall.core.metadata_manager.metadata_form_entity_manager import (
+            MetadataFormEntityTypes,
+            MetadataFormEntityManager,
+        )
         from dataall.modules.vote.services.vote_service import add_vote_type
         from dataall.modules.feed.api.registry import FeedRegistry, FeedDefinition
         from dataall.modules.catalog.indexers.registry import GlossaryRegistry, GlossaryDefinition
@@ -82,6 +87,10 @@ class DatasetApiModuleInterface(ModuleInterface):
         TargetType('dataset', GET_DATASET, UPDATE_DATASET, MANAGE_DATASETS)
 
         EnvironmentResourceManager.register(DatasetRepository())
+        MetadataFormEntityManager.register(S3Dataset, MetadataFormEntityTypes.S3Datasets.value)
+        MetadataFormEntityManager.register(DatasetTable, MetadataFormEntityTypes.Tables.value)
+        MetadataFormEntityManager.register(DatasetStorageLocation, MetadataFormEntityTypes.Folder.value)
+        MetadataFormEntityManager.register(DatasetBucket, MetadataFormEntityTypes.Bucket.value)
 
         log.info('API of S3 datasets has been imported')
 

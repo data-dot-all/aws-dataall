@@ -1,12 +1,20 @@
+import logging
+
 from dataall.base.context import get_context
 from dataall.core.environment.db.environment_repositories import EnvironmentRepository
 from dataall.core.organizations.db.organization_repositories import OrganizationRepository
+from dataall.core.permissions.services.resource_policy_service import ResourcePolicyService
 from dataall.core.permissions.services.tenant_policy_service import TenantPolicyValidationService
 from dataall.modules.datasets_base.db.dataset_repositories import DatasetBaseRepository
-from dataall.modules.metadata_forms.db.enums import MetadataFormUserRoles, MetadataFormEntityTypes
+from dataall.modules.metadata_forms.db.enums import (
+    MetadataFormUserRoles,
+    MetadataFormEnforcementScope,
+)
+from dataall.core.metadata_manager.metadata_form_entity_manager import MetadataFormEntityTypes
 from dataall.modules.metadata_forms.db.metadata_form_repository import MetadataFormRepository
 from functools import wraps
 from dataall.base.db import exceptions
+from dataall.modules.metadata_forms.services.metadata_form_permissions import ENFORCE_METADATA_FORM
 
 
 class MetadataFormAccessService:
@@ -96,3 +104,25 @@ class MetadataFormAccessService:
         envs = MetadataFormAccessService._target_env_uri_getter(filter.get('entityType'), filter.get('entityUri'))
 
         return orgs, envs
+
+    @staticmethod
+    def check_enforcement_access(entityUri, level):
+        context = get_context()
+        is_admin = TenantPolicyValidationService.is_tenant_admin(context.groups)
+
+        if level == MetadataFormEnforcementScope.Global.value:
+            if is_admin:
+                return True
+            raise exceptions.UnauthorizedOperation(
+                action=ENFORCE_METADATA_FORM, message='Only data.all admins can enforce metadata forms on global level'
+            )
+
+        with context.db_engine.scoped_session() as session:
+            ResourcePolicyService.check_user_resource_permission(
+                session=session,
+                username=context.username,
+                groups=context.groups,
+                resource_uri=entityUri,
+                permission_name=ENFORCE_METADATA_FORM,
+            )
+        return True

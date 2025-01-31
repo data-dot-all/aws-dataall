@@ -32,6 +32,10 @@ class RedshiftDatasetApiModuleInterface(ModuleInterface):
     def __init__(self):
         from dataall.modules.vote.services.vote_service import add_vote_type
         from dataall.modules.feed.api.registry import FeedRegistry, FeedDefinition
+        from dataall.core.metadata_manager.metadata_form_entity_manager import (
+            MetadataFormEntityTypes,
+            MetadataFormEntityManager,
+        )
         from dataall.modules.catalog.indexers.registry import GlossaryRegistry, GlossaryDefinition
         from dataall.core.environment.services.environment_resource_manager import EnvironmentResourceManager
 
@@ -84,8 +88,9 @@ class RedshiftDatasetApiModuleInterface(ModuleInterface):
 
         EnvironmentResourceManager.register(RedshiftDatasetEnvironmentResource())
         EnvironmentResourceManager.register(RedshiftConnectionEnvironmentResource())
+        MetadataFormEntityManager.register(RedshiftDataset, MetadataFormEntityTypes.RDDatasets.value)
 
-        log.info('API of Redshift datasets has been imported')
+    log.info('API of Redshift datasets has been imported')
 
 
 class RedshiftDatasetCdkModuleInterface(ModuleInterface):

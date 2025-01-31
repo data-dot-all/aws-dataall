@@ -7,9 +7,11 @@ from sqlalchemy.orm import query_expression
 from dataall.base.db import Resource, Base, utils
 
 from dataall.core.environment.api.enums import EnvironmentPermission, EnvironmentType
+from dataall.core.metadata_manager import MetadataFormEntityManager, MetadataFormEntity, MetadataFormEntityTypes
 
 
 class Environment(Resource, Base):
+    __metaclass__ = MetadataFormEntity
     __tablename__ = 'environment'
     organizationUri = Column(String, nullable=False)
     environmentUri = Column(String, primary_key=True, default=utils.uuid('environment'))
@@ -40,8 +42,18 @@ class Environment(Resource, Base):
     subscriptionsConsumersTopicName = Column(String)
     subscriptionsConsumersTopicImported = Column(Boolean, default=False)
 
+    def get_uri(self):
+        return self.environmentUri
+
+    def get_owner(self):
+        return self.SamlGroupName
+
+    def get_entity_name(self):
+        return self.label
+
 
 class EnvironmentGroup(Base):
+    __metaclass__ = MetadataFormEntity
     __tablename__ = 'environment_group_permission'
     groupUri = Column(String, primary_key=True)
     environmentUri = Column(String, primary_key=True)
@@ -57,6 +69,15 @@ class EnvironmentGroup(Base):
 
     # environmentRole is the role of the entity (group or user) in the Environment
     groupRoleInEnvironment = Column(String, nullable=False, default=EnvironmentPermission.Invited.value)
+
+    def get_uri(self):
+        return f'{self.groupUri}-{self.environmentUri}'
+
+    def get_owner(self):
+        return self.invitedBy
+
+    def get_entity_name(self):
+        return f'{self.groupUri}-{self.environmentUri}'
 
 
 class EnvironmentParameter(Base):
@@ -78,6 +99,7 @@ class EnvironmentParameter(Base):
 
 
 class ConsumptionRole(Base):
+    __metaclass__ = MetadataFormEntity
     __tablename__ = 'consumptionrole'
     consumptionRoleUri = Column(String, primary_key=True, default=utils.uuid('group'))
     consumptionRoleName = Column(String, nullable=False)
@@ -89,3 +111,17 @@ class ConsumptionRole(Base):
     created = Column(DateTime, default=datetime.datetime.now)
     updated = Column(DateTime, onupdate=datetime.datetime.now)
     deleted = Column(DateTime)
+
+    def get_uri(self):
+        return self.consumptionRoleUri
+
+    def get_owner(self):
+        return self.groupUri
+
+    def get_entity_name(self):
+        return f'{self.consumptionRoleName}-{self.environmentUri}'
+
+
+MetadataFormEntityManager.register(Environment, MetadataFormEntityTypes.Environments.value)
+MetadataFormEntityManager.register(ConsumptionRole, MetadataFormEntityTypes.ConsumptionRoles.value)
+MetadataFormEntityManager.register(EnvironmentGroup, MetadataFormEntityTypes.EnvironmentTeams.value)

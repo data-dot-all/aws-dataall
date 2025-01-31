@@ -1,11 +1,13 @@
 import {
+  BallotOutlined,
   ForumOutlined,
   Info,
   LocalOffer,
   LockOpen,
   ShareOutlined,
   Upload,
-  ViewArrayOutlined
+  ViewArrayOutlined,
+  WarningAmber
 } from '@mui/icons-material';
 import {
   Box,
@@ -47,6 +49,7 @@ import {
 import { isFeatureEnabled, isModuleEnabled, ModuleNames } from 'utils';
 import { RequestAccessModal } from 'modules/Catalog/components';
 import { MetadataAttachment } from '../../Metadata_Forms/components';
+import { listRulesThatAffectEntity } from '../../Metadata_Forms/services';
 
 const DatasetView = () => {
   const dispatch = useDispatch();
@@ -63,6 +66,7 @@ const DatasetView = () => {
   const [isUpVoted, setIsUpVoted] = useState(false);
   const [upVotes, setUpvotes] = useState(null);
   const [openFeed, setOpenFeed] = useState(false);
+  const [affectingMFRules, setAffectingMFRules] = useState([]);
   const getTabs = () => {
     const tabs = [
       {
@@ -72,9 +76,26 @@ const DatasetView = () => {
       },
       { label: 'Overview', value: 'overview', icon: <Info fontSize="small" /> },
       {
-        label: 'Metadata',
+        label: (
+          <>
+            Metadata{' '}
+            {affectingMFRules.filter(
+              (r) => r.severity === 'Mandatory' && !r.attached
+            ).length > 0 ? (
+              <WarningAmber sx={{ color: 'red', ml: 1 }} />
+            ) : null}
+            {affectingMFRules.filter(
+              (r) => r.severity === 'Mandatory' && !r.attached
+            ).length === 0 &&
+            affectingMFRules.filter(
+              (r) => r.severity === 'Recommended' && !r.attached
+            ).length > 0 ? (
+              <WarningAmber sx={{ color: 'orange', ml: 1 }} />
+            ) : null}
+          </>
+        ),
         value: 'metadata',
-        icon: <ForumOutlined fontSize="small" />,
+        icon: <BallotOutlined fontSize="small" />,
         active: isModuleEnabled(ModuleNames.METADATA_FORMS)
       }
     ];
@@ -105,6 +126,20 @@ const DatasetView = () => {
       }
     }
     return tabs.filter((tab) => tab.active !== false);
+  };
+
+  const fetchAffectingMFRules = async () => {
+    if (isModuleEnabled(ModuleNames.METADATA_FORMS)) {
+      const response = await client.query(
+        listRulesThatAffectEntity(params.uri, 'S3-Dataset')
+      );
+      if (
+        !response.errors &&
+        response.data.listRulesThatAffectEntity !== null
+      ) {
+        setAffectingMFRules(response.data.listRulesThatAffectEntity);
+      }
+    }
   };
 
   const handleDeleteObjectModalOpen = () => {
@@ -184,6 +219,9 @@ const DatasetView = () => {
         dispatch({ type: SET_ERROR, error: e.message })
       );
       fetchItem().catch((e) => dispatch({ type: SET_ERROR, error: e.message }));
+      fetchAffectingMFRules().catch((e) =>
+        dispatch({ type: SET_ERROR, error: e.message })
+      );
     }
   }, [client, fetchItem, getUserDatasetVote, dispatch, params.uri]);
 
@@ -363,7 +401,11 @@ const DatasetView = () => {
               <DatasetData dataset={dataset} isAdmin={isAdmin} />
             )}
             {currentTab === 'metadata' && (
-              <MetadataAttachment entityType="Dataset" entityUri={params.uri} />
+              <MetadataAttachment
+                entityType="S3-Dataset"
+                entityUri={params.uri}
+                affectingRules={affectingMFRules}
+              />
             )}
             {currentTab === 'overview' && (
               <DatasetOverview dataset={dataset} isAdmin={isAdmin} />

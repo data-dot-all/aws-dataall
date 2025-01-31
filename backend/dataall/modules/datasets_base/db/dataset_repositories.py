@@ -115,19 +115,19 @@ class DatasetListRepository:
         data=None,
     ) -> dict:
         return paginate(
-            query=DatasetListRepository._query_environment_datasets(session, uri, data),
+            query=DatasetListRepository.query_datasets(session, data, environmentUri=uri),
             page=data.get('page', 1),
             page_size=data.get('pageSize', 10),
         ).to_dict()
 
     @staticmethod
-    def _query_environment_datasets(session, uri, filter) -> Query:
-        query = session.query(DatasetBase).filter(
-            and_(
-                DatasetBase.environmentUri == uri,
-                DatasetBase.deleted.is_(None),
-            )
-        )
+    def query_datasets(session, filter=None, organizationUri=None, environmentUri=None) -> Query:
+        query = session.query(DatasetBase).filter(DatasetBase.deleted.is_(None))
+        if organizationUri:
+            query = query.filter(DatasetBase.organizationUri == organizationUri)
+        if environmentUri:
+            query = query.filter(DatasetBase.environmentUri == environmentUri)
+
         if filter and filter.get('term'):
             term = filter['term']
             query = query.filter(

@@ -393,7 +393,7 @@ const NewVersionModal = (props) => {
   };
 
   return (
-    <Dialog maxWidth="xs" fullWidth onClose={onClose} open={() => {}}>
+    <Dialog maxWidth="sm" fullWidth onClose={onClose} open={() => {}}>
       <Box sx={{ p: 3 }}>
         <Typography
           align="center"
@@ -402,6 +402,9 @@ const NewVersionModal = (props) => {
           variant="h4"
         >
           Create New Version
+        </Typography>
+        <Typography color="textPrimary" gutterBottom>
+          All enforcement rules will be updated to use the latest version.
         </Typography>
         <FormControl>
           <RadioGroup
@@ -471,7 +474,7 @@ const NewVersionModal = (props) => {
 export const ConfirmationPopUp = (props) => {
   const { version, attachedFormCount, onClose, onDelete } = props;
   return (
-    <Dialog maxWidth="xs" fullWidth onClose={onClose} open={() => {}}>
+    <Dialog maxWidth="sm" fullWidth onClose={onClose} open={() => {}}>
       <Box sx={{ p: 3 }}>
         <Typography
           align="center"
@@ -484,6 +487,8 @@ export const ConfirmationPopUp = (props) => {
         <Typography color="textPrimary" align="center" gutterBottom>
           If you delete this version,
           <br /> all data associated with it will be lost. <br />
+          All enforcement rules will be updated to use the latest version.
+          <br />
           Attached entities: {attachedFormCount}
         </Typography>
       </Box>

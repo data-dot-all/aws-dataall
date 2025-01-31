@@ -38,7 +38,7 @@ const MetadataFormView = () => {
   const tabs = [
     { label: 'Form Info', value: 'info' },
     { label: 'Fields', value: 'fields' },
-    // { label: 'Enforcement', value: 'enforcement' },
+    { label: 'Enforcement', value: 'enforcement' },
     { label: 'Preview', value: 'preview' }
   ];
   const [metadataForm, setMetadataForm] = useState(null);
@@ -251,7 +251,10 @@ const MetadataFormView = () => {
               />
             )}
             {currentTab === 'enforcement' && (
-              <MetadataFormEnforcement metadataForm={metadataForm} />
+              <MetadataFormEnforcement
+                metadataForm={metadataForm}
+                canEdit={metadataForm.userRole === userRolesMF.Owner}
+              />
             )}
             {currentTab === 'preview' && (
               <MetadataFormPreview metadataForm={metadataForm} />

@@ -36,6 +36,7 @@ class MetadataFormEnforcementRule(Base):
     metadataFormUri = Column(String, ForeignKey('metadata_form.uri'), nullable=False)
     version = Column(Integer, nullable=False)
     level = Column(String, nullable=False)  # enum MetadataFormEnforcementScope
+    homeEntity = Column(String, nullable=True)
     entityTypes = Column(ARRAY(String), nullable=False)  # enum MetadataFormEntityTypes
     severity = Column(String, nullable=False)  # enum MetadataFormEnforcementSeverity
 

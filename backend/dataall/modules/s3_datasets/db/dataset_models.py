@@ -4,6 +4,7 @@ from sqlalchemy.orm import query_expression
 from dataall.base.db import Base, Resource, utils
 from dataall.modules.datasets_base.db.dataset_models import DatasetBase
 from dataall.modules.datasets_base.services.datasets_enums import DatasetTypes
+from dataall.core.metadata_manager.metadata_form_entity_manager import MetadataFormEntity
 
 
 class DatasetTableColumn(Resource, Base):
@@ -39,6 +40,7 @@ class DatasetProfilingRun(Resource, Base):
 
 
 class DatasetStorageLocation(Resource, Base):
+    __metaclass__ = MetadataFormEntity
     __tablename__ = 'dataset_storage_location'
     datasetUri = Column(String, nullable=False)
     locationUri = Column(String, primary_key=True, default=utils.uuid('location'))
@@ -56,8 +58,18 @@ class DatasetStorageLocation(Resource, Base):
     def uri(cls):
         return cls.locationUri
 
+    def get_owner(self):
+        return ''
+
+    def get_entity_name(self):
+        return f'{self.S3BucketName}/{self.S3Prefix}'
+
+    def get_uri(self):
+        return self.locationUri
+
 
 class DatasetTable(Resource, Base):
+    __metaclass__ = MetadataFormEntity
     __tablename__ = 'dataset_table'
     datasetUri = Column(String, nullable=False)
     tableUri = Column(String, primary_key=True, default=utils.uuid('table'))
@@ -81,6 +93,15 @@ class DatasetTable(Resource, Base):
     @classmethod
     def uri(cls):
         return cls.tableUri
+
+    def get_owner(self):
+        return ''
+
+    def get_entity_name(self):
+        return f'{self.GlueDatabaseName}.{self.GlueTableName}'
+
+    def get_uri(self):
+        return self.tableUri
 
 
 class S3Dataset(DatasetBase):
@@ -119,6 +140,7 @@ class S3Dataset(DatasetBase):
 
 
 class DatasetBucket(Resource, Base):
+    __metaclass__ = MetadataFormEntity
     __tablename__ = 'dataset_bucket'
     datasetUri = Column(String, ForeignKey('s3_dataset.datasetUri', ondelete='CASCADE'), nullable=False)
     bucketUri = Column(String, primary_key=True, default=utils.uuid('bucket'))
@@ -136,6 +158,15 @@ class DatasetBucket(Resource, Base):
     @classmethod
     def uri(cls):
         return cls.bucketUri
+
+    def get_owner(self):
+        return ''
+
+    def get_entity_name(self):
+        return self.S3BucketName
+
+    def get_uri(self):
+        return self.bucketUri
 
 
 class DatasetTableDataFilter(Resource, Base):

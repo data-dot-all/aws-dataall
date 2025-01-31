@@ -10,6 +10,7 @@ from dataall.modules.shares_base.services.shares_enums import (
     ShareObjectStatus,
     ShareItemStatus,
 )
+from dataall.core.metadata_manager.metadata_form_entity_manager import MetadataFormEntity
 
 
 def in_one_month():
@@ -21,6 +22,7 @@ def _uuid4():
 
 
 class ShareObject(Base):
+    __metaclass__ = MetadataFormEntity
     __tablename__ = 'share_object'
     shareUri = Column(String, nullable=False, primary_key=True, default=utils.uuid('share'))
     datasetUri = Column(String, nullable=False)
@@ -48,8 +50,18 @@ class ShareObject(Base):
     nonExpirable = Column(Boolean, default=False, nullable=False)
     shareExpirationPeriod = Column(Integer, nullable=True)
 
+    def get_owner(self):
+        return self.owner
+
+    def get_entity_name(self):
+        return self.shareUri
+
+    def get_uri(self):
+        return self.shareUri
+
 
 class ShareObjectItem(Base):
+    __metaclass__ = MetadataFormEntity
     __tablename__ = 'share_object_item'
     shareUri = Column(String, nullable=False)
     shareItemUri = Column(String, default=utils.uuid('shareitem'), nullable=False, primary_key=True)
@@ -69,6 +81,15 @@ class ShareObjectItem(Base):
     attachedDataFilterUri = Column(
         String, ForeignKey('share_object_item_data_filter.attachedDataFilterUri'), nullable=True
     )
+
+    def get_owner(self):
+        return self.owner
+
+    def get_entity_name(self):
+        return self.itemName
+
+    def get_uri(self):
+        return self.shareItemUri
 
 
 class ShareObjectItemDataFilter(Base):

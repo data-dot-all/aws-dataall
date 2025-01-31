@@ -3,9 +3,11 @@ from sqlalchemy.dialects.postgresql import JSON, ARRAY
 from sqlalchemy.orm import query_expression
 from dataall.base.db import Base, Resource, utils
 from dataall.modules.datasets_base.services.datasets_enums import ConfidentialityClassification, Language, DatasetTypes
+from dataall.core.metadata_manager.metadata_form_entity_manager import MetadataFormEntity
 
 
 class DatasetBase(Resource, Base):
+    __metaclass__ = MetadataFormEntity
     __tablename__ = 'dataset'
     environmentUri = Column(String, ForeignKey('environment.environmentUri'), nullable=False)
     organizationUri = Column(String, nullable=False)
@@ -37,6 +39,15 @@ class DatasetBase(Resource, Base):
     @classmethod
     def uri(cls):
         return cls.datasetUri
+
+    def get_owner(self):
+        return self.SamlAdminGroupName
+
+    def get_entity_name(self):
+        return self.label
+
+    def get_uri(self):
+        return self.datasetUri
 
 
 DatasetBase.__name__ = 'Dataset'

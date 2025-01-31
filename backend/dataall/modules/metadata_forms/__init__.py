@@ -1,3 +1,5 @@
+from typing import List, Type
+
 from dataall.base.loader import ModuleInterface, ImportMode
 
 
@@ -11,3 +13,9 @@ class MetadataFormsApiModuleInterface(ModuleInterface):
     def __init__(self):
         import dataall.modules.metadata_forms.api
         import dataall.modules.metadata_forms.db.enums
+
+    @staticmethod
+    def depends_on() -> List[Type['ModuleInterface']]:
+        from dataall.modules.datasets_base import DatasetBaseApiModuleInterface
+
+        return [DatasetBaseApiModuleInterface]

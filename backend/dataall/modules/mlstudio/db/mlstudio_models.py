@@ -6,11 +6,13 @@ from sqlalchemy.dialects.postgresql import ARRAY
 
 from dataall.base.db import Base
 from dataall.base.db import Resource, utils
+from dataall.core.metadata_manager.metadata_form_entity_manager import MetadataFormEntity
 
 
 class SagemakerStudioDomain(Resource, Base):
     """Describes ORM model for sagemaker ML Studio domain"""
 
+    __metaclass__ = MetadataFormEntity
     __tablename__ = 'sagemaker_studio_domain'
     environmentUri = Column(String, ForeignKey('environment.environmentUri'), nullable=False)
     sagemakerStudioUri = Column(String, primary_key=True, default=utils.uuid('sagemakerstudio'))
@@ -24,6 +26,15 @@ class SagemakerStudioDomain(Resource, Base):
     vpcType = Column(String, nullable=True)
     vpcId = Column(String, nullable=True)
     subnetIds = Column(ARRAY(String), nullable=True)
+
+    def get_owner(self):
+        return self.SamlGroupName
+
+    def get_entity_name(self):
+        return self.sagemakerStudioDomainName
+
+    def get_uri(self):
+        return self.sagemakerStudioUri
 
 
 class SagemakerStudioUser(Resource, Base):

@@ -8,6 +8,8 @@ from sqlalchemy.orm import query_expression
 from dataall.base.db import Base
 from dataall.base.db import Resource, utils
 
+from dataall.core.metadata_manager.metadata_form_entity_manager import MetadataFormEntity
+
 
 class QueryType(enum.Enum):
     chart = 'chart'
@@ -15,6 +17,7 @@ class QueryType(enum.Enum):
 
 
 class Worksheet(Resource, Base):
+    __metaclass__ = MetadataFormEntity
     __tablename__ = 'worksheet'
     worksheetUri = Column(String, primary_key=True, default=utils.uuid('_'))
     SamlAdminGroupName = Column(String, nullable=False)
@@ -23,6 +26,15 @@ class Worksheet(Resource, Base):
     userRoleForWorksheet = query_expression()
     lastSavedAthenaQueryIdForQuery = Column(String, nullable=True)
     lastSavedAthenaQueryIdForChart = Column(String, nullable=True)
+
+    def get_owner(self):
+        return self.SamlAdminGroupName
+
+    def get_entity_name(self):
+        return self.label
+
+    def get_uri(self):
+        return self.worksheetUri
 
 
 class WorksheetQueryResult(Base):

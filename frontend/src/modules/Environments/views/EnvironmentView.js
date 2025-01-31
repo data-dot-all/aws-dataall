@@ -1,10 +1,12 @@
 import {
+  BallotOutlined,
   FolderOpen,
   Info,
   LocalOffer,
   NotificationsActive,
   SupervisedUserCircleRounded,
-  Warning
+  Warning,
+  WarningAmber
 } from '@mui/icons-material';
 import {
   Box,
@@ -50,50 +52,7 @@ import {
 } from '../components';
 import { ModuleNames, isModuleEnabled } from 'utils';
 import { MetadataAttachment } from '../../Metadata_Forms/components';
-
-const tabs = [
-  { label: 'Overview', value: 'overview', icon: <Info fontSize="small" /> },
-  {
-    label: 'Teams',
-    value: 'teams',
-    icon: <SupervisedUserCircleRounded fontSize="small" />
-  },
-  {
-    label: 'Metadata',
-    value: 'metadata',
-    active: isModuleEnabled(ModuleNames.METADATA_FORMS)
-  },
-  {
-    label: 'Datasets',
-    value: 'datasets',
-    icon: <FolderOpen fontSize="small" />,
-    active: isModuleEnabled(
-      ModuleNames.S3_DATASETS || ModuleNames.REDSHIFT_DATASETS
-    )
-  },
-  {
-    label: 'Connections',
-    value: 'connections',
-    icon: <FolderOpen fontSize="small" />,
-    active: isModuleEnabled(ModuleNames.REDSHIFT_DATASETS)
-  },
-  {
-    label: 'ML Studio Domain',
-    value: 'mlstudio',
-    icon: <FolderOpen fontSize="small" />,
-    active: isModuleEnabled(ModuleNames.MLSTUDIO)
-  },
-  { label: 'Networks', value: 'networks', icon: <FaNetworkWired size={20} /> },
-  {
-    label: 'Subscriptions',
-    value: 'subscriptions',
-    icon: <NotificationsActive fontSize="small" />
-  },
-  { label: 'Tags', value: 'tags', icon: <LocalOffer fontSize="small" /> },
-  { label: 'Stack', value: 'stack', icon: <FaAws size={20} /> }
-];
-
-const activeTabs = tabs.filter((tab) => tab.active !== false);
+import { listRulesThatAffectEntity } from '../../Metadata_Forms/services';
 
 const EnvironmentView = () => {
   const dispatch = useDispatch();
@@ -108,6 +67,75 @@ const EnvironmentView = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isArchiveObjectModalOpen, setIsArchiveObjectModalOpen] =
     useState(false);
+  const [affectingMFRules, setAffectingMFRules] = useState([]);
+
+  const getTabs = () => {
+    const tabs = [
+      { label: 'Overview', value: 'overview', icon: <Info fontSize="small" /> },
+      {
+        label: 'Teams',
+        value: 'teams',
+        icon: <SupervisedUserCircleRounded fontSize="small" />
+      },
+      {
+        label: (
+          <>
+            Metadata{' '}
+            {affectingMFRules.filter(
+              (r) => r.severity === 'Mandatory' && !r.attached
+            ).length > 0 ? (
+              <WarningAmber sx={{ color: 'red', ml: 1 }} />
+            ) : null}
+            {affectingMFRules.filter(
+              (r) => r.severity === 'Mandatory' && !r.attached
+            ).length === 0 &&
+            affectingMFRules.filter(
+              (r) => r.severity === 'Recommended' && !r.attached
+            ).length > 0 ? (
+              <WarningAmber sx={{ color: 'orange', ml: 1 }} />
+            ) : null}
+          </>
+        ),
+        value: 'metadata',
+        icon: <BallotOutlined fontSize="small" />,
+        active: isModuleEnabled(ModuleNames.METADATA_FORMS)
+      },
+      {
+        label: 'Datasets',
+        value: 'datasets',
+        icon: <FolderOpen fontSize="small" />,
+        active: isModuleEnabled(
+          ModuleNames.S3_DATASETS || ModuleNames.REDSHIFT_DATASETS
+        )
+      },
+      {
+        label: 'Connections',
+        value: 'connections',
+        icon: <FolderOpen fontSize="small" />,
+        active: isModuleEnabled(ModuleNames.REDSHIFT_DATASETS)
+      },
+      {
+        label: 'ML Studio Domain',
+        value: 'mlstudio',
+        icon: <FolderOpen fontSize="small" />,
+        active: isModuleEnabled(ModuleNames.MLSTUDIO)
+      },
+      {
+        label: 'Networks',
+        value: 'networks',
+        icon: <FaNetworkWired size={20} />
+      },
+      {
+        label: 'Subscriptions',
+        value: 'subscriptions',
+        icon: <NotificationsActive fontSize="small" />
+      },
+      { label: 'Tags', value: 'tags', icon: <LocalOffer fontSize="small" /> },
+      { label: 'Stack', value: 'stack', icon: <FaAws size={20} /> }
+    ];
+
+    return tabs.filter((tab) => tab.active !== false);
+  };
   const handleArchiveObjectModalOpen = () => {
     setIsArchiveObjectModalOpen(true);
   };
@@ -119,6 +147,19 @@ const EnvironmentView = () => {
     setCurrentTab(value);
   };
 
+  const fetchAffectingMFRules = async () => {
+    if (isModuleEnabled(ModuleNames.METADATA_FORMS)) {
+      const response = await client.query(
+        listRulesThatAffectEntity(params.uri, 'Environment')
+      );
+      if (
+        !response.errors &&
+        response.data.listRulesThatAffectEntity !== null
+      ) {
+        setAffectingMFRules(response.data.listRulesThatAffectEntity);
+      }
+    }
+  };
   const archiveEnv = async () => {
     const response = await client.mutate(
       archiveEnvironment({
@@ -165,6 +206,9 @@ const EnvironmentView = () => {
   useEffect(() => {
     if (client) {
       fetchItem().catch((e) => dispatch({ type: SET_ERROR, error: e.message }));
+      fetchAffectingMFRules().catch((e) =>
+        dispatch({ type: SET_ERROR, error: e.message })
+      );
     }
   }, [client, dispatch, fetchItem]);
 
@@ -257,7 +301,7 @@ const EnvironmentView = () => {
               value={currentTab}
               variant="fullWidth"
             >
-              {activeTabs.map((tab) => (
+              {getTabs().map((tab) => (
                 <Tab
                   key={tab.value}
                   label={tab.label}
@@ -277,6 +321,7 @@ const EnvironmentView = () => {
               <MetadataAttachment
                 entityType="Environment"
                 entityUri={env.environmentUri}
+                affectingRules={affectingMFRules}
               />
             )}
             {currentTab === 'teams' && <EnvironmentTeams environment={env} />}

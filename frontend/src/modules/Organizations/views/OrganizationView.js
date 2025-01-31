@@ -1,8 +1,10 @@
 import {
   ArchiveOutlined,
+  BallotOutlined,
   Info,
   SupervisedUserCircleRounded,
-  Warning
+  Warning,
+  WarningAmber
 } from '@mui/icons-material';
 import {
   Box,
@@ -40,24 +42,7 @@ import {
 } from '../components';
 import { MetadataAttachment } from '../../Metadata_Forms/components';
 import { isModuleEnabled, ModuleNames } from '../../../utils';
-
-const tabs = [
-  { label: 'Overview', value: 'overview', icon: <Info fontSize="small" /> },
-  { label: 'Environments', value: 'environments', icon: <FaAws size={20} /> },
-  {
-    label: 'Metadata',
-    value: 'metadata',
-    icon: <FaAws size={20} />,
-    active: isModuleEnabled(ModuleNames.METADATA_FORMS)
-  },
-  {
-    label: 'Teams',
-    value: 'teams',
-    icon: <SupervisedUserCircleRounded fontSize="small" />
-  }
-];
-
-const activeTabs = tabs.filter((tab) => tab.active !== false);
+import { listRulesThatAffectEntity } from '../../Metadata_Forms/services';
 
 const OrganizationView = () => {
   const { settings } = useSettings();
@@ -72,10 +57,66 @@ const OrganizationView = () => {
   const [loading, setLoading] = useState(true);
   const [isArchiveObjectModalOpen, setIsArchiveObjectModalOpen] =
     useState(false);
+
+  const [affectingMFRules, setAffectingMFRules] = useState([]);
+
+  const getTabs = () => {
+    const tabs = [
+      { label: 'Overview', value: 'overview', icon: <Info fontSize="small" /> },
+      {
+        label: 'Environments',
+        value: 'environments',
+        icon: <FaAws size={20} />
+      },
+      {
+        label: (
+          <>
+            Metadata{' '}
+            {affectingMFRules.filter(
+              (r) => r.severity === 'Mandatory' && !r.attached
+            ).length > 0 ? (
+              <WarningAmber sx={{ color: 'red', ml: 1 }} />
+            ) : null}
+            {affectingMFRules.filter(
+              (r) => r.severity === 'Mandatory' && !r.attached
+            ).length === 0 &&
+            affectingMFRules.filter(
+              (r) => r.severity === 'Recommended' && !r.attached
+            ).length > 0 ? (
+              <WarningAmber sx={{ color: 'orange', ml: 1 }} />
+            ) : null}
+          </>
+        ),
+        value: 'metadata',
+        icon: <BallotOutlined fontSize="small" />,
+        active: isModuleEnabled(ModuleNames.METADATA_FORMS)
+      },
+      {
+        label: 'Teams',
+        value: 'teams',
+        icon: <SupervisedUserCircleRounded fontSize="small" />
+      }
+    ];
+
+    return tabs.filter((tab) => tab.active !== false);
+  };
   const handleArchiveObjectModalOpen = () => {
     setIsArchiveObjectModalOpen(true);
   };
 
+  const fetchAffectingMFRules = async () => {
+    if (isModuleEnabled(ModuleNames.METADATA_FORMS)) {
+      const response = await client.query(
+        listRulesThatAffectEntity(params.uri, 'Environment')
+      );
+      if (
+        !response.errors &&
+        response.data.listRulesThatAffectEntity !== null
+      ) {
+        setAffectingMFRules(response.data.listRulesThatAffectEntity);
+      }
+    }
+  };
   const handleArchiveObjectModalClose = () => {
     setIsArchiveObjectModalOpen(false);
   };
@@ -120,6 +161,9 @@ const OrganizationView = () => {
   useEffect(() => {
     if (client) {
       fetchItem().catch((e) => dispatch({ type: SET_ERROR, error: e.message }));
+      fetchAffectingMFRules().catch((e) =>
+        dispatch({ type: SET_ERROR, error: e.message })
+      );
     }
   }, [client, dispatch, fetchItem]);
 
@@ -211,7 +255,7 @@ const OrganizationView = () => {
                 value={currentTab}
                 variant="fullWidth"
               >
-                {activeTabs.map((tab) => (
+                {getTabs().map((tab) => (
                   <Tab
                     key={tab.value}
                     label={tab.label}
@@ -237,6 +281,7 @@ const OrganizationView = () => {
                 <MetadataAttachment
                   entityType="Organization"
                   entityUri={org.organizationUri}
+                  affectingRules={affectingMFRules}
                 />
               )}
             </Box>
