@@ -140,8 +140,7 @@ class DatasetTableService:
             existing_tables = DatasetTableRepository.find_dataset_tables(session, uri)
             existing_table_names = [e.GlueTableName for e in existing_tables]
             existing_dataset_tables_map = {t.GlueTableName: t for t in existing_tables}
-
-            DatasetTableRepository.update_existing_tables_status(existing_tables, glue_tables)
+            DatasetTableRepository.update_existing_tables_status(existing_tables, glue_tables, session)
             log.info(f'existing_tables={glue_tables}')
             for table in glue_tables:
                 if table['Name'] not in existing_table_names:

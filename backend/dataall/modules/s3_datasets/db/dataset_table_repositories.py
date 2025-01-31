@@ -1,9 +1,11 @@
 import logging
 from datetime import datetime
+from typing import List
 
 from sqlalchemy.sql import and_
 
 from dataall.base.db import exceptions
+from dataall.core.activity.db.activity_models import Activity
 from dataall.modules.s3_datasets.db.dataset_models import (
     DatasetTableColumn,
     DatasetTable,
@@ -11,6 +13,9 @@ from dataall.modules.s3_datasets.db.dataset_models import (
     DatasetTableDataFilter,
 )
 from dataall.base.utils import json_utils
+from dataall.modules.shares_base.db.share_object_repositories import ShareObjectRepository
+from dataall.modules.shares_base.db.share_object_models import ShareObjectItem
+from dataall.modules.shares_base.services.shares_enums import ShareItemStatus
 
 logger = logging.getLogger(__name__)
 
@@ -61,11 +66,33 @@ class DatasetTableRepository:
         return table
 
     @staticmethod
-    def update_existing_tables_status(existing_tables, glue_tables):
+    def update_existing_tables_status(existing_tables, glue_tables, session):
         for existing_table in existing_tables:
             if existing_table.GlueTableName not in [t['Name'] for t in glue_tables]:
                 existing_table.LastGlueTableStatus = 'Deleted'
                 logger.info(f'Existing Table {existing_table.GlueTableName} status set to Deleted from Glue')
+                # Once the table item is deleted from glue and no longer part of the dataset
+                # Find out where this item is used in shares and delete all the share items.
+                share_item_status_filter = [ShareItemStatus.Share_Succeeded.value]
+                share_object_items: List[ShareObjectItem] = (
+                    ShareObjectRepository.list_share_object_items_for_item_with_status(
+                        session=session, item_uri=existing_table.tableUri, status=share_item_status_filter
+                    )
+                )
+                logger.info(
+                    f'Found {len(share_object_items)} share objects where the table {existing_table.tableUri} is present as a share item in state: {share_item_status_filter}. Deleting those share items'
+                )
+                for share_object_item in share_object_items:
+                    activity = Activity(
+                        action='SHARE_OBJECT_ITEM:DELETE',
+                        label='SHARE_OBJECT_ITEM:DELETE',
+                        owner='dataall-automation',
+                        summary=f'dataall-automation deleted share object: {share_object_item.itemName} with uri: {share_object_item.itemUri} since the glue table associated was deleted from source glue db',
+                        targetUri=share_object_item.itemUri,
+                        targetType='share_object_item',
+                    )
+                    session.add(activity)
+                    session.delete(share_object_item)
             elif (
                 existing_table.GlueTableName in [t['Name'] for t in glue_tables]
                 and existing_table.LastGlueTableStatus == 'Deleted'
