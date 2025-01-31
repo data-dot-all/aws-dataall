@@ -7,7 +7,7 @@ services:
       dockerfile: docker/dev/Dockerfile
       args:
         CONTAINER_UID: ${UID}
-    entrypoint: /bin/bash -c 'aws configure set region "eu-west-1" &&. ~/.nvm/nvm.sh && uvicorn cdkproxymain:app --host 0.0.0.0 --port 2805 --reload'
+    entrypoint: /bin/bash -c 'aws configure set region "eu-west-1" && . ~/.nvm/nvm.sh && uvicorn cdkproxymain:app --host 0.0.0.0 --port 2805 --reload'
     expose:
       - 2805
     ports:

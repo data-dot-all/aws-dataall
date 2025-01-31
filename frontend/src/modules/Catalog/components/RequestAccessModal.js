@@ -49,7 +49,7 @@ export const RequestAccessModal = (props) => {
   const [loadingPolicies, setLoadingPolicies] = useState(false);
   const [roleOptions, setRoleOptions] = useState([]);
   const [isSharePolicyAttached, setIsSharePolicyAttached] = useState(true);
-  const [policyName, setPolicyName] = useState('');
+  const [unAttachedPolicyNames, setUnAttachedPolicyNames] = useState('');
 
   const [step, setStep] = useState(0);
   const [share, setShare] = useState(false);
@@ -175,15 +175,21 @@ export const RequestAccessModal = (props) => {
         })
       );
       if (!response.errors) {
-        var isSharePolicyAttached =
-          response.data.getConsumptionRolePolicies.find(
-            (policy) => policy.policy_type === 'SharePolicy'
-          ).attached;
-        setIsSharePolicyAttached(isSharePolicyAttached);
-        var policyName = response.data.getConsumptionRolePolicies.find(
-          (policy) => policy.policy_type === 'SharePolicy'
-        ).policy_name;
-        setPolicyName(policyName);
+        let isSharePoliciesAttached = response.data.getConsumptionRolePolicies
+          .filter((policy) => policy.policy_type === 'SharePolicy')
+          .map((policy) => policy.attached);
+        const isAllPoliciesAttached = isSharePoliciesAttached.every(
+          (value) => value === true
+        );
+        setIsSharePolicyAttached(isAllPoliciesAttached);
+        let policyNameList = response.data.getConsumptionRolePolicies
+          .filter((policy) => {
+            return (
+              policy.policy_type === 'SharePolicy' && policy.attached === false
+            );
+          })
+          .map((policy) => policy.policy_name);
+        setUnAttachedPolicyNames(policyNameList);
       } else {
         dispatch({ type: SET_ERROR, error: response.errors[0].message });
       }
@@ -614,7 +620,7 @@ export const RequestAccessModal = (props) => {
                                       );
                                     } else {
                                       setFieldValue('consumptionRole', '');
-                                      setPolicyName('');
+                                      setUnAttachedPolicyNames('');
                                     }
                                   }}
                                   renderInput={(params) => (
@@ -746,7 +752,8 @@ export const RequestAccessModal = (props) => {
                                 <FormHelperText error>
                                   Selected consumption role is managed by
                                   customer, but the share policy{' '}
-                                  <strong>{policyName}</strong> is not attached.
+                                  <strong>{unAttachedPolicyNames}</strong> is
+                                  not attached.
                                   <br />
                                   Please attach it or let Data.all attach it for
                                   you.

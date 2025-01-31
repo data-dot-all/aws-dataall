@@ -1,6 +1,5 @@
-from typing import List, Callable
+from typing import List, Callable, Dict
 import logging
-from aws_cdk import aws_iam as iam
 
 logger = logging.getLogger(__name__)
 
@@ -9,7 +8,7 @@ POLICY_HEADERS_BUFFER = 144  # The policy headers take around 60 chars. An extra
 MAXIMUM_NUMBER_MANAGED_POLICIES = 20  # Soft limit 10, hard limit 20
 
 
-def split_policy_statements_in_chunks(statements: List):
+def split_policy_statements_in_chunks(statements: List[Dict]):
     """
     Splitter used for IAM policies with an undefined number of statements
     - Ensures that the size of the IAM policy remains below the POLICY LIMIT
@@ -18,7 +17,7 @@ def split_policy_statements_in_chunks(statements: List):
     """
     chunks = []
     index = 0
-    statements_list_of_strings = [str(s.to_json()) for s in statements]
+    statements_list_of_strings = [str(s) for s in statements]
     total_length = len(', '.join(statements_list_of_strings))
     logger.info(f'Number of statements = {len(statements)}')
     logger.info(f'Total length of statements = {total_length}')
@@ -31,13 +30,12 @@ def split_policy_statements_in_chunks(statements: List):
         chunk = []
         chunk_size = 0
         while (
-            index < len(statements)
-            and chunk_size + len(str(statements[index].to_json())) < POLICY_LIMIT - POLICY_HEADERS_BUFFER
+            index < len(statements) and chunk_size + len(str(statements[index])) < POLICY_LIMIT - POLICY_HEADERS_BUFFER
         ):
             #  Appends a statement to the chunk until we reach its maximum size.
             #  It compares, current size of the statements < allowed size for the statements section of a policy
             chunk.append(statements[index])
-            chunk_size += len(str(statements[index].to_json()))
+            chunk_size += len(str(statements[index]))
             index += 1
         chunks.append(chunk)
     logger.info(f'Total number of managed policies = {len(chunks)}')
@@ -46,15 +44,13 @@ def split_policy_statements_in_chunks(statements: List):
     return chunks
 
 
-def split_policy_with_resources_in_statements(
-    base_sid: str, effect: iam.Effect, actions: List[str], resources: List[str]
-):
+def split_policy_with_resources_in_statements(base_sid: str, effect: str, actions: List[str], resources: List[str]):
     """
     The variable part of the policy is in the resources parameter of the PolicyStatement
     """
 
     def _build_statement(split, subset):
-        return iam.PolicyStatement(sid=base_sid + str(split), effect=effect, actions=actions, resources=subset)
+        return {'Sid': base_sid + str(split), 'Effect': effect, 'Action': actions, 'Resource': subset}
 
     total_length, base_length = _policy_analyzer(resources, _build_statement)
     extra_chars = len('" ," ')
@@ -72,7 +68,7 @@ def split_policy_with_resources_in_statements(
 
 
 def split_policy_with_mutiple_value_condition_in_statements(
-    base_sid: str, effect: iam.Effect, actions: List[str], resources: List[str], condition_dict: dict
+    base_sid: str, effect: str, actions: List[str], resources: List[str], condition_dict: dict
 ):
     """
     The variable part of the policy is in the conditions parameter of the PolicyStatement
@@ -80,13 +76,13 @@ def split_policy_with_mutiple_value_condition_in_statements(
     """
 
     def _build_statement(split, subset):
-        return iam.PolicyStatement(
-            sid=base_sid + str(split),
-            effect=effect,
-            actions=actions,
-            resources=resources,
-            conditions={condition_dict.get('key'): {condition_dict.get('resource'): subset}},
-        )
+        return {
+            'Sid': base_sid + str(split),
+            'Effect': effect,
+            'Action': actions,
+            'Resource': resources,
+            'Condition': {condition_dict.get('key'): {condition_dict.get('resource'): subset}},
+        }
 
     total_length, base_length = _policy_analyzer(condition_dict.get('values'), _build_statement)
     extra_chars = len(
@@ -109,13 +105,13 @@ def split_policy_with_mutiple_value_condition_in_statements(
     return resulting_statements
 
 
-def _policy_analyzer(resources: List[str], statement_builder: Callable[[int, List[str]], iam.PolicyStatement]):
+def _policy_analyzer(resources: List[str], statement_builder: Callable[[int, List[str]], Dict]):
     """
     Calculates the policy size with the resources (total_length) and without resources (base_length)
     """
     statement_without_resources = statement_builder(1, ['*'])
     resources_str = '" ," '.join(r for r in resources)
-    base_length = len(str(statement_without_resources.to_json()))
+    base_length = len(str(statement_without_resources))
     total_length = base_length + len(resources_str)
     logger.info(f'Policy base length = {base_length}')
     logger.info(f'Resources as string length = {len(resources_str)}')
@@ -128,7 +124,7 @@ def _policy_splitter(
     base_length: int,
     resources: List[str],
     extra_chars: int,
-    statement_builder: Callable[[int, List[str]], iam.PolicyStatement],
+    statement_builder: Callable[[int, List[str]], Dict],
 ):
     """
     Splitter used for IAM policy statements with an undefined number of resources one of the parameters of the policy.

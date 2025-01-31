@@ -27,7 +27,6 @@ RUN chown -R ${CONTAINER_USER}:root /tmp
 
 USER ${CONTAINER_USER}
 
-
 ## Add source
 WORKDIR /build
 

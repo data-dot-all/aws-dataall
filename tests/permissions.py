@@ -212,9 +212,6 @@ EXPECTED_RESOLVERS: Mapping[str, TestData] = {
     field_id('Category', 'terms'): TestData(
         resource_ignore=IgnoreReason.INTRAMODULE, tenant_ignore=IgnoreReason.NOTREQUIRED
     ),
-    field_id('ConsumptionRole', 'managedPolicies'): TestData(
-        resource_perm=GET_ENVIRONMENT, tenant_ignore=IgnoreReason.NOTREQUIRED
-    ),
     field_id('Dashboard', 'environment'): TestData(
         resource_perm=GET_ENVIRONMENT, tenant_ignore=IgnoreReason.NOTREQUIRED
     ),

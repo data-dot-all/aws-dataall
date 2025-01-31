@@ -29,9 +29,23 @@ class ManagedPolicy(ABC):
         ...
 
     @abstractmethod
-    def generate_policy_name(self) -> str:
+    def generate_old_policy_name(self) -> str:
+        """
+        Returns string and needs to be implemented in the ManagedPolicies inherited classes.
+        Used for backwards compatibility. It should be deprecated in the future releases.
+        """
+
+    @abstractmethod
+    def generate_base_policy_name(self) -> str:
         """
         Returns string and needs to be implemented in the ManagedPolicies inherited classes
+        """
+        ...
+
+    @abstractmethod
+    def generate_indexed_policy_name(self, index) -> str:
+        """
+        Returns string of policy name with index at the end .Needs to be implemented in the ManagedPolicies inherited classes
         """
         ...
 
@@ -42,29 +56,40 @@ class ManagedPolicy(ABC):
         """
         ...
 
-    @abstractmethod
-    def create_managed_policy_from_inline_and_delete_inline(self) -> str:
-        """
-        Returns policy arn and needs to be implemented in the ManagedPolicies inherited classes
-        It is used for backwards compatibility. It should be deprecated and removed in future releases.
-        """
-        ...
+    def check_if_policy_exists(self, policy_name) -> bool:
+        policy = IAM.get_managed_policy_by_name(self.account, self.region, policy_name)
+        return policy is not None
 
-    def check_if_policy_exists(self) -> bool:
-        policy_name = self.generate_policy_name()
-        share_policy = IAM.get_managed_policy_by_name(self.account, self.region, policy_name)
-        return share_policy is not None
+    def get_managed_policies(self) -> List[str]:
+        policy_pattern = self.generate_base_policy_name()
+        policies = self._get_policy_names(policy_pattern)
+        return policies
 
-    def check_if_policy_attached(self):
-        policy_name = self.generate_policy_name()
-        return IAM.is_policy_attached(self.account, self.region, policy_name, self.role_name)
+    def check_if_policy_attached(self, policy_name):
+        is_policy_attached = IAM.is_policy_attached(self.account, self.region, policy_name, self.role_name)
+        return is_policy_attached
 
-    def attach_policy(self):
-        policy_arn = f'arn:aws:iam::{self.account}:policy/{self.generate_policy_name()}'
-        try:
-            IAM.attach_role_policy(self.account, self.region, self.role_name, policy_arn)
-        except Exception as e:
-            raise Exception(f"Required customer managed policy {policy_arn} can't be attached: {e}")
+    def get_policies_unattached_to_role(self):
+        policy_pattern = self.generate_base_policy_name()
+        policies = self._get_policy_names(policy_pattern)
+        unattached_policies = []
+        for policy_name in policies:
+            if not self.check_if_policy_attached(policy_name):
+                unattached_policies.append(policy_name)
+        return unattached_policies
+
+    def attach_policies(self, managed_policies_list: List[str]):
+        for policy_name in managed_policies_list:
+            policy_arn = f'arn:aws:iam::{self.account}:policy/{policy_name}'
+            try:
+                IAM.attach_role_policy(self.account, self.region, self.role_name, policy_arn)
+            except Exception as e:
+                raise Exception(f"Required customer managed policy {policy_arn} can't be attached: {e}")
+
+    def _get_policy_names(self, base_policy_name):
+        filter_pattern = r'{base_policy_name}-\d'.format(base_policy_name=base_policy_name)
+        policies = IAM.list_policy_names_by_policy_pattern(self.account, self.region, filter_pattern)
+        return policies
 
 
 class PolicyManager(object):
@@ -99,12 +124,11 @@ class PolicyManager(object):
         Manager that registers and calls all policies created by data.all modules and that
         need to be created for consumption roles and team roles
         """
-        try:
-            for Policy in self.initializedPolicies:
-                empty_policy = Policy.generate_empty_policy()
-                policy_name = Policy.generate_policy_name()
-                logger.info(f'Creating policy {policy_name}')
-
+        for policy_manager in self.initializedPolicies:
+            empty_policy = policy_manager.generate_empty_policy()
+            policy_name = policy_manager.generate_indexed_policy_name(index=0)
+            logger.info(f'Creating policy: {policy_name}')
+            try:
                 IAM.create_managed_policy(
                     account_id=self.account,
                     region=self.region,
@@ -119,8 +143,9 @@ class PolicyManager(object):
                         role_name=self.role_name,
                         policy_arn=f'arn:aws:iam::{self.account}:policy/{policy_name}',
                     )
-        except Exception as e:
-            raise e
+            except Exception as e:
+                logger.error(f'Error while creating and attaching policies due to: {e}')
+                raise e
         return True
 
     def delete_all_policies(self) -> bool:
@@ -128,23 +153,35 @@ class PolicyManager(object):
         Manager that registers and calls all policies created by data.all modules and that
         need to be deleted for consumption roles and team roles
         """
-        try:
-            for Policy in self.initializedPolicies:
-                policy_name = Policy.generate_policy_name()
+        for policy_manager in self.initializedPolicies:
+            policy_name_list = policy_manager.get_managed_policies()
+
+            # Check if policy with old naming format exists
+            if not policy_name_list:
+                old_managed_policy_name = policy_manager.generate_old_policy_name()
+                if policy_manager.check_if_policy_exists(policy_name=old_managed_policy_name):
+                    policy_name_list.append(old_managed_policy_name)
+
+            for policy_name in policy_name_list:
                 logger.info(f'Deleting policy {policy_name}')
-                if Policy.check_if_policy_attached():
-                    IAM.detach_policy_from_role(
-                        account_id=self.account, region=self.region, role_name=self.role_name, policy_name=policy_name
-                    )
-                if Policy.check_if_policy_exists():
-                    IAM.delete_managed_policy_non_default_versions(
-                        account_id=self.account, region=self.region, policy_name=policy_name
-                    )
-                    IAM.delete_managed_policy_by_name(
-                        account_id=self.account, region=self.region, policy_name=policy_name
-                    )
-        except Exception as e:
-            raise e
+                try:
+                    if policy_manager.check_if_policy_attached(policy_name=policy_name):
+                        IAM.detach_policy_from_role(
+                            account_id=self.account,
+                            region=self.region,
+                            role_name=self.role_name,
+                            policy_name=policy_name,
+                        )
+                    if policy_manager.check_if_policy_exists(policy_name=policy_name):
+                        IAM.delete_managed_policy_non_default_versions(
+                            account_id=self.account, region=self.region, policy_name=policy_name
+                        )
+                        IAM.delete_managed_policy_by_name(
+                            account_id=self.account, region=self.region, policy_name=policy_name
+                        )
+                except Exception as e:
+                    logger.error(f'Error while deleting managed policies due to: {e}')
+                    raise e
         return True
 
     def get_all_policies(self) -> List[dict]:
@@ -153,13 +190,22 @@ class PolicyManager(object):
         need to be listed for consumption roles and team roles
         """
         all_policies = []
-        for Policy in self.initializedPolicies:
-            policy_dict = {
-                'policy_name': Policy.generate_policy_name(),
-                'policy_type': Policy.policy_type,
-                'exists': Policy.check_if_policy_exists(),
-                'attached': Policy.check_if_policy_attached(),
-            }
-            all_policies.append(policy_dict)
-        logger.info(f'All policies currently added to role {str(all_policies)}')
+        for policy_manager in self.initializedPolicies:
+            policy_name_list = policy_manager.get_managed_policies()
+
+            # Check if policy with old naming format exists
+            if not policy_name_list:
+                old_managed_policy_name = policy_manager.generate_old_policy_name()
+                if policy_manager.check_if_policy_exists(policy_name=old_managed_policy_name):
+                    policy_name_list.append(old_managed_policy_name)
+
+            for policy_name in policy_name_list:
+                policy_dict = {
+                    'policy_name': policy_name,
+                    'policy_type': policy_manager.policy_type,
+                    'exists': policy_manager.check_if_policy_exists(policy_name=policy_name),
+                    'attached': policy_manager.check_if_policy_attached(policy_name=policy_name),
+                }
+                all_policies.append(policy_dict)
+        logger.info(f'All policies currently added to role: {self.role_name} are: {str(all_policies)}')
         return all_policies

@@ -261,7 +261,7 @@ class ContainerStack(pyNestedClass):
             f'ShareManagementTaskContainer{self._envname}',
             container_name='container',
             image=ecs.ContainerImage.from_ecr_repository(repository=self._ecr_repository, tag=self._cdkproxy_image_tag),
-            environment=self._create_env(),
+            environment=self.env_vars,
             command=['python3.9', '-m', 'dataall.modules.shares_base.tasks.share_manager_task'],
             logging=ecs.LogDriver.aws_logs(
                 stream_prefix='task',
@@ -292,7 +292,7 @@ class ContainerStack(pyNestedClass):
             command=['python3.9', '-m', 'dataall.modules.shares_base.tasks.share_verifier_task'],
             container_id='container',
             ecr_repository=self._ecr_repository,
-            environment=self._create_env(),
+            environment=self.env_vars,
             image_tag=self._cdkproxy_image_tag,
             log_group=self.create_log_group(self._envname, self._resource_prefix, log_group_name='share-verifier'),
             schedule_expression=Schedule.expression('rate(7 days)'),
@@ -321,7 +321,7 @@ class ContainerStack(pyNestedClass):
             f'ShareReapplierTaskContainer{self._envname}',
             container_name='container',
             image=ecs.ContainerImage.from_ecr_repository(repository=self._ecr_repository, tag=self._cdkproxy_image_tag),
-            environment=self._create_env(),
+            environment=self.env_vars,
             command=['python3.9', '-m', 'dataall.modules.shares_base.tasks.share_reapplier_task'],
             logging=ecs.LogDriver.aws_logs(
                 stream_prefix='task',

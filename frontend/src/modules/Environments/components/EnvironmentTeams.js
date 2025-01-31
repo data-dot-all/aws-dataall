@@ -44,7 +44,11 @@ import {
 } from 'design';
 import { SET_ERROR, useDispatch } from 'globalErrors';
 import { isFeatureEnabled } from 'utils';
-import { useClient, useFetchGroups } from 'services';
+import {
+  getConsumptionRolePolicies,
+  useClient,
+  useFetchGroups
+} from 'services';
 import {
   generateEnvironmentAccessToken,
   getEnvironmentAssumeRoleUrl,
@@ -286,6 +290,91 @@ TeamRow.propTypes = {
   handleTemaEditModalClose: PropTypes.any,
   isDeleteTeamModalOpenId: PropTypes.string,
   isTeamEditModalOpenId: PropTypes.string
+};
+
+export const IAMRolePolicyDataGridCell = ({ environmentUri, IAMRoleName }) => {
+  const [isLoading, setLoading] = useState(true);
+  const [managedPolicyDetails, setManagedPolicyDetails] = useState(null);
+  const dispatch = useDispatch();
+  const { enqueueSnackbar } = useSnackbar();
+  const client = useClient();
+
+  useEffect(() => {
+    if (client) {
+      getRolePolicies().catch((e) =>
+        dispatch({ type: SET_ERROR, error: e.message })
+      );
+    }
+  }, [client, dispatch, enqueueSnackbar]);
+
+  const getRolePolicies = async () => {
+    setLoading(true);
+    try {
+      const response = await client.query(
+        getConsumptionRolePolicies({
+          environmentUri: environmentUri,
+          IAMRoleName: IAMRoleName
+        })
+      );
+      if (!response.errors) {
+        setManagedPolicyDetails(response.data.getConsumptionRolePolicies);
+      } else {
+        dispatch({ type: SET_ERROR, error: response.errors[0].message });
+      }
+    } catch (e) {
+      dispatch({ type: SET_ERROR, error: e.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Box>
+      {isLoading ? (
+        <CircularProgress size={30} />
+      ) : (
+        <Box>
+          <Label
+            sx={{ ml: 5 }}
+            color={
+              managedPolicyDetails
+                .map((policy) => policy.attached)
+                .includes(false)
+                ? 'error'
+                : 'success'
+            }
+          >
+            {managedPolicyDetails
+              .map((policy) => policy.attached)
+              .includes(false)
+              ? 'Not Attached'
+              : 'Attached'}
+          </Label>
+          <LoadingButton
+            onClick={async () => {
+              await navigator.clipboard.writeText(
+                managedPolicyDetails.map((policy) => policy.policy_name)
+              );
+              enqueueSnackbar('Policy Name is copied to clipboard', {
+                anchorOrigin: {
+                  horizontal: 'right',
+                  vertical: 'top'
+                },
+                variant: 'success'
+              });
+            }}
+          >
+            <CopyAllOutlined />
+          </LoadingButton>
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+IAMRolePolicyDataGridCell.propTypes = {
+  environmentUri: PropTypes.any,
+  IAMRoleName: PropTypes.any
 };
 
 export const EnvironmentTeams = ({ environment }) => {
@@ -746,45 +835,10 @@ export const EnvironmentTeams = ({ environment }) => {
                     headerName: 'IAM Policies',
                     flex: 0.5,
                     renderCell: (params: GridRenderCellParams<any, Date>) => (
-                      <Box>
-                        <Label
-                          sx={{ ml: 5 }}
-                          color={
-                            params.row.managedPolicies
-                              .map((policy) => policy.attached)
-                              .includes(false)
-                              ? 'error'
-                              : 'success'
-                          }
-                        >
-                          {params.row.managedPolicies
-                            .map((policy) => policy.attached)
-                            .includes(false)
-                            ? 'Not Attached'
-                            : 'Attached'}
-                        </Label>
-                        <LoadingButton
-                          onClick={async () => {
-                            await navigator.clipboard.writeText(
-                              params.row.managedPolicies.map(
-                                (policy) => policy.policy_name
-                              )
-                            );
-                            enqueueSnackbar(
-                              'Policy Name is copied to clipboard',
-                              {
-                                anchorOrigin: {
-                                  horizontal: 'right',
-                                  vertical: 'top'
-                                },
-                                variant: 'success'
-                              }
-                            );
-                          }}
-                        >
-                          <CopyAllOutlined />
-                        </LoadingButton>
-                      </Box>
+                      <IAMRolePolicyDataGridCell
+                        environmentUri={params.row.environmentUri}
+                        IAMRoleName={params.row.IAMRoleArn.split('/').pop()}
+                      />
                     )
                   },
                   {

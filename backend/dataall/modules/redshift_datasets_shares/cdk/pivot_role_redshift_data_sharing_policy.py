@@ -1,6 +1,6 @@
 import os
 from dataall.base import db
-from dataall.base.utils.iam_policy_utils import split_policy_with_resources_in_statements
+from dataall.base.utils.iam_cdk_utils import process_and_split_policy_with_resources_in_statements
 from dataall.core.environment.cdk.pivot_role_stack import PivotRoleStatementSet
 from dataall.modules.redshift_datasets.db.redshift_connection_repositories import RedshiftConnectionRepository
 
@@ -39,9 +39,9 @@ class RedshiftDataSharingPivotRole(PivotRoleStatementSet):
                     for conn in connections
                 ]
                 additional_statements.extend(
-                    split_policy_with_resources_in_statements(
+                    process_and_split_policy_with_resources_in_statements(
                         base_sid='RedshiftDataShare',
-                        effect=iam.Effect.ALLOW,
+                        effect=iam.Effect.ALLOW.value,
                         actions=['redshift:AuthorizeDataShare'],
                         resources=source_datashare_arns,
                     )

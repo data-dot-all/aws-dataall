@@ -29,11 +29,6 @@ export const listAllEnvironmentConsumptionRoles = ({
           groupUri
           IAMRoleArn
           dataallManaged
-          managedPolicies {
-            policy_type
-            policy_name
-            attached
-          }
         }
       }
     }

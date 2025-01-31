@@ -131,21 +131,35 @@ class S3ShareValidator(SharesValidatorInterface):
             region=environment.region,
             resource_prefix=environment.resourcePrefix,
         )
-        for Policy in [
+        for policy_manager in [
             Policy for Policy in share_policy_manager.initializedPolicies if Policy.policy_type == 'SharePolicy'
         ]:
-            # Backwards compatibility
+            # Backwards compatibility - 1
             # we check if a managed share policy exists. If False, the role was introduced to data.all before this update
             # We create the policy from the inline statements
             # In this case it could also happen that the role is the Admin of the environment
-            if not Policy.check_if_policy_exists():
-                Policy.create_managed_policy_from_inline_and_delete_inline()
+            old_managed_policy_name = policy_manager.generate_old_policy_name()
+            old_managed_policy_exists = policy_manager.check_if_policy_exists(policy_name=old_managed_policy_name)
+            share_managed_policies_exist = True if policy_manager.get_managed_policies() else False
+            # If old managed policy doesn't exist and also new managed policies do not exist.
+            # Then there might be inline policies, convert them to managed indexed policies
+            if not old_managed_policy_exists and not share_managed_policies_exist:
+                policy_manager.create_managed_policy_from_inline_and_delete_inline()
             # End of backwards compatibility
 
-            attached = Policy.check_if_policy_attached()
-            if not attached and not managed and not attachMissingPolicies:
+            # Backwards compatibility - 2
+            # Check if an already existing managed policy is present in old format
+            # If yes, convert it to the indexed format
+            old_managed_policy_name = policy_manager.generate_old_policy_name()
+            if policy_manager.check_if_policy_exists(old_managed_policy_name):
+                policy_manager.create_managed_indexed_policy_from_managed_policy_delete_old_policy()
+            # End of backwards compatibility
+
+            unattached = policy_manager.get_policies_unattached_to_role()
+            if unattached and not managed and not attachMissingPolicies:
                 raise Exception(
-                    f'Required customer managed policy {Policy.generate_policy_name()} is not attached to role {principal_role_name}'
+                    f'Required customer managed policies {policy_manager.get_policies_unattached_to_role()} are not attached to role {principal_role_name}'
                 )
-            elif not attached:
-                Policy.attach_policy()
+            elif unattached:
+                managed_policy_list = policy_manager.get_policies_unattached_to_role()
+                policy_manager.attach_policies(managed_policy_list)

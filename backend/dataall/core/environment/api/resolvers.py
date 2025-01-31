@@ -175,13 +175,6 @@ def get_parent_organization(context: Context, source, **kwargs):
     return org
 
 
-# used from ConsumptionRole type as field resolver
-def resolve_consumption_role_policies(context: Context, source, **kwargs):
-    return EnvironmentService.resolve_consumption_role_policies(
-        uri=source.environmentUri, IAMRoleName=source.IAMRoleName
-    )
-
-
 # used from getConsumptionRolePolicies query -- query resolver
 def get_consumption_role_policies(context: Context, source, environmentUri, IAMRoleName):
     return EnvironmentService.resolve_consumption_role_policies(uri=environmentUri, IAMRoleName=IAMRoleName)

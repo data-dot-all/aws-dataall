@@ -8,6 +8,7 @@ import pytest
 from assertpy import assert_that
 
 from dataall.base.utils.expiration_util import ExpirationUtils
+from dataall.base.utils.naming_convention import NamingConventionPattern, NamingConventionService
 from dataall.core.environment.db.environment_models import Environment, EnvironmentGroup, ConsumptionRole
 from dataall.core.organizations.db.organization_models import Organization
 from dataall.modules.shares_base.services.share_object_service import ShareObjectService
@@ -1272,15 +1273,18 @@ def test_create_share_object_as_requester(mocker, client, user2, group2, env2gro
         'dataall.base.aws.iam.IAM.get_role_arn_by_name',
         return_value='role_arn',
     )
-    # When a user that belongs to environment and group creates request
+
+    old_policy_exists = False
     mocker.patch(
         'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.check_if_policy_exists',
-        return_value=True,
+        return_value=old_policy_exists,
     )
     mocker.patch(
         'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.check_if_policy_attached',
         return_value=True,
     )
+    mocker.patch('dataall.base.aws.iam.IAM.list_policy_names_by_policy_pattern', return_value=['policy-0'])
+
     create_share_object_response = create_share_object(
         mocker=mocker,
         client=client,
@@ -1306,14 +1310,18 @@ def test_create_share_object_as_approver_and_requester(mocker, client, user, gro
         'dataall.base.aws.iam.IAM.get_role_arn_by_name',
         return_value='role_arn',
     )
+    old_policy_exists = False
     mocker.patch(
         'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.check_if_policy_exists',
-        return_value=True,
+        return_value=old_policy_exists,
     )
     mocker.patch(
         'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.check_if_policy_attached',
         return_value=True,
     )
+
+    mocker.patch('dataall.base.aws.iam.IAM.list_policy_names_by_policy_pattern', return_value=['policy-0'])
+
     create_share_object_response = create_share_object(
         mocker=mocker,
         client=client,
@@ -1339,14 +1347,18 @@ def test_create_share_object_invalid_account(mocker, client, user, group2, env2g
         'dataall.base.aws.iam.IAM.get_role_arn_by_name',
         return_value='role_arn',
     )
+    old_policy_exists = False
     mocker.patch(
         'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.check_if_policy_exists',
-        return_value=True,
+        return_value=old_policy_exists,
     )
     mocker.patch(
         'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.check_if_policy_attached',
         return_value=True,
     )
+
+    mocker.patch('dataall.base.aws.iam.IAM.list_policy_names_by_policy_pattern', return_value=['policy-0'])
+
     create_share_object_response = create_share_object(
         mocker=mocker,
         client=client,
@@ -1375,12 +1387,18 @@ def test_create_share_object_with_item_authorized(
     )
     mocker.patch(
         'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.check_if_policy_exists',
+        return_value=False,
+    )
+    mocker.patch(
+        'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.check_if_policy_attached',
         return_value=True,
     )
     mocker.patch(
         'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.check_if_policy_attached',
         return_value=True,
     )
+    mocker.patch('dataall.base.aws.iam.IAM.list_policy_names_by_policy_pattern', return_value=['policy-0'])
+
     create_share_object_response = create_share_object(
         mocker=mocker,
         client=client,
@@ -1424,16 +1442,18 @@ def test_create_share_object_share_policy_not_attached_attachMissingPolicies_ena
     )
     mocker.patch(
         'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.check_if_policy_exists',
-        return_value=True,
-    )
-    mocker.patch(
-        'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.check_if_policy_attached',
         return_value=False,
     )
+    mocker.patch(
+        'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.get_policies_unattached_to_role',
+        return_value='policy-0',
+    )
     attach_mocker = mocker.patch(
-        'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.attach_policy',
+        'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.attach_policies',
         return_value=True,
     )
+    mocker.patch('dataall.base.aws.iam.IAM.list_policy_names_by_policy_pattern', return_value=['policy-0'])
+
     create_share_object_response = create_share_object(
         mocker=mocker,
         client=client,
@@ -1465,16 +1485,18 @@ def test_create_share_object_share_policy_not_attached_attachMissingPolicies_dis
     )
     mocker.patch(
         'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.check_if_policy_exists',
-        return_value=True,
-    )
-    mocker.patch(
-        'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.check_if_policy_attached',
         return_value=False,
     )
+    mocker.patch(
+        'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.get_policies_unattached_to_role',
+        return_value='policy-0',
+    )
     attach_mocker = mocker.patch(
-        'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.attach_policy',
+        'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.attach_policies',
         return_value=True,
     )
+    mocker.patch('dataall.base.aws.iam.IAM.list_policy_names_by_policy_pattern', return_value=['policy-0'])
+
     create_share_object_response = create_share_object(
         mocker=mocker,
         client=client,
@@ -1506,12 +1528,14 @@ def test_create_share_object_share_policy_not_attached_attachMissingPolicies_dis
     )
     mocker.patch(
         'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.check_if_policy_exists',
-        return_value=True,
-    )
-    mocker.patch(
-        'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.check_if_policy_attached',
         return_value=False,
     )
+    mocker.patch(
+        'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.get_policies_unattached_to_role',
+        return_value='policy-0',
+    )
+    mocker.patch('dataall.base.aws.iam.IAM.list_policy_names_by_policy_pattern', return_value=['policy-0'])
+
     consumption_role = MagicMock(spec_set=ConsumptionRole)
     consumption_role.IAMRoleName = 'randomName'
     consumption_role.IAMRoleArn = 'randomArn'
@@ -1533,8 +1557,8 @@ def test_create_share_object_share_policy_not_attached_attachMissingPolicies_dis
         principalType=PrincipalType.ConsumptionRole.value,
     )
     # Then share object is not created and an error appears
-    assert 'Required customer managed policy' in create_share_object_response.errors[0].message
-    assert 'is not attached to role randomName' in create_share_object_response.errors[0].message
+    assert 'Required customer managed policies' in create_share_object_response.errors[0].message
+    assert 'are not attached to role randomName' in create_share_object_response.errors[0].message
 
 
 def test_create_share_object_with_share_expiration_added(
@@ -1546,12 +1570,18 @@ def test_create_share_object_with_share_expiration_added(
     )
     mocker.patch(
         'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.check_if_policy_exists',
-        return_value=True,
+        return_value=False,
     )
     mocker.patch(
-        'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.check_if_policy_attached',
+        'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.get_policies_unattached_to_role',
+        return_value='policy-0',
+    )
+    mocker.patch('dataall.base.aws.iam.IAM.list_policy_names_by_policy_pattern', return_value=['policy-0'])
+    mocker.patch(
+        'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.attach_policies',
         return_value=True,
     )
+
     create_share_object_response = create_share_object(
         mocker=mocker,
         client=client,
@@ -1586,12 +1616,18 @@ def test_create_share_object_with_non_expiring_share(
     )
     mocker.patch(
         'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.check_if_policy_exists',
-        return_value=True,
+        return_value=False,
     )
     mocker.patch(
-        'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.check_if_policy_attached',
+        'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.get_policies_unattached_to_role',
+        return_value='policy-0',
+    )
+    mocker.patch('dataall.base.aws.iam.IAM.list_policy_names_by_policy_pattern', return_value=['policy-0'])
+    mocker.patch(
+        'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.attach_policies',
         return_value=True,
     )
+
     create_share_object_response = create_share_object(
         mocker=mocker,
         client=client,
@@ -1620,12 +1656,18 @@ def test_create_share_object_with_share_expiration_incorrect_share_expiration(
     )
     mocker.patch(
         'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.check_if_policy_exists',
-        return_value=True,
+        return_value=False,
     )
     mocker.patch(
-        'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.check_if_policy_attached',
+        'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.get_policies_unattached_to_role',
+        return_value='policy-0',
+    )
+    mocker.patch('dataall.base.aws.iam.IAM.list_policy_names_by_policy_pattern', return_value=['policy-0'])
+    mocker.patch(
+        'dataall.modules.s3_datasets_shares.services.s3_share_managed_policy_service.S3SharePolicyService.attach_policies',
         return_value=True,
     )
+
     create_share_object_response = create_share_object(
         mocker=mocker,
         client=client,

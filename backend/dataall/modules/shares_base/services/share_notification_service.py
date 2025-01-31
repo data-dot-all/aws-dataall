@@ -109,6 +109,40 @@ class ShareNotificationService:
         )
         return notifications
 
+    def notify_managed_policy_limit_exceeded_action(self, email_id: str):
+        share_link_text = ''
+        if os.environ.get('frontend_domain_url'):
+            share_link_text = (
+                f'<br><br>Please visit data.all <a href="{os.environ.get("frontend_domain_url")}'
+                f'/console/shares/{self.share.shareUri}">share link</a> '
+                f'to view more details.'
+            )
+
+        msg_intro = f"""Dear User, <br>
+        
+        We are contacting you because a share requested by {email_id} failed because no new managed policy can be attached to your IAM role {self.share.principalRoleName}.
+        Please check the service quota for the number of managed policies that can be attached to a role in your aws account and increase the limit.
+        For reference please take a look at this link - https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html#reference_iam-quotas-entities.<br>
+        Or please remove any unused managed policies from that role. <br>
+        
+    
+        Note - Previously made shares are not affected but any newly added share items or new shares on requestor role {self.share.principalRoleName} will be fail till the time you increase the IAM quota limit or detach any other managed policy from that role.
+        """
+
+        msg_end = """Your prompt attention in this matter is greatly appreciated.
+        <br><br>Best regards,
+        <br>The Data.all Team
+        """
+
+        subject = 'URGENT: Data.all | Action Required due to failing share'
+        email_notification_msg = msg_intro + share_link_text + msg_end
+
+        self._create_and_send_email_notifications(
+            subject=subject,
+            msg=email_notification_msg,
+            recipient_groups_list=[self.share.groupUri],
+        )
+
     def notify_share_object_approval(self, email_id: str):
         share_link_text = ''
         if os.environ.get('frontend_domain_url'):
