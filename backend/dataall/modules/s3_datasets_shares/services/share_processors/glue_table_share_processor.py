@@ -2,7 +2,11 @@ import logging
 from typing import List
 from warnings import warn
 from datetime import datetime
+
+from dataall.base.db.exceptions import ResourceLockTimeout
 from dataall.core.environment.services.environment_service import EnvironmentService
+from dataall.core.resource_lock.db.resource_lock_repositories import ResourceLockRepository
+from dataall.modules.s3_datasets.db.dataset_repositories import DatasetRepository
 from dataall.modules.shares_base.services.shares_enums import (
     ShareItemHealthStatus,
     ShareItemStatus,
@@ -10,7 +14,7 @@ from dataall.modules.shares_base.services.shares_enums import (
     ShareItemActions,
     ShareableType,
 )
-from dataall.modules.s3_datasets.db.dataset_models import DatasetTable
+from dataall.modules.s3_datasets.db.dataset_models import DatasetTable, S3Dataset
 from dataall.modules.shares_base.db.share_object_models import ShareObjectItemDataFilter
 from dataall.modules.shares_base.services.share_exceptions import PrincipalRoleNotFound
 from dataall.modules.s3_datasets_shares.services.share_managers import LFShareManager
@@ -221,137 +225,192 @@ class ProcessLakeFormationShare(SharesProcessorInterface):
         True if share is revoked successfully
         False if revoke fails
         """
-        log.info('##### Starting Revoking tables #######')
-        success = True
-        manager = self._initialize_share_manager(self.tables)
-        if not self.tables:
-            log.info('No tables to revoke. Skipping...')
-        else:
-            try:
-                if not S3ShareService.verify_principal_role(self.session, self.share_data.share):
-                    raise PrincipalRoleNotFound(
-                        'process revoked shares',
-                        f'Principal role {self.share_data.share.principalRoleName} is not found. Failed to update LF policy',
-                    )
-                if None in [
-                    manager.source_account_id,
-                    manager.source_account_region,
-                    manager.source_database_name,
-                ]:
-                    raise Exception(
-                        'Source account details not initialized properly. Please check if the catalog account is properly onboarded on data.all'
-                    )
-                manager.initialize_clients()
-                manager.grant_pivot_role_all_database_permissions_to_shared_database()
-            except Exception as e:
-                log.error(f'Failed to process revoked tables due to {e}')
-                manager.handle_share_failure_for_all_tables(
-                    tables=self.tables, error=e, share_item_status=ShareItemStatus.Revoke_Approved.value
-                )
-                return False
+        # Find out all the datasets where the same db is used and lock all those datasets
+        # With this any possible override from other share will be avoided. See the https://github.com/data-dot-all/dataall/issues/1633 for more details on this.
+        s3_dataset: S3Dataset = DatasetRepository.get_dataset_by_uri(
+            session=self.session, dataset_uri=self.share_data.dataset.datasetUri
+        )
 
-            for table in self.tables:
-                log.info(f'Revoking access to table {table.tableUri}/{table.GlueTableName}...')
-                share_item = ShareObjectRepository.find_sharable_item(
-                    self.session, self.share_data.share.shareUri, table.tableUri
-                )
-                share_item_filter = None
-                if share_item.attachedDataFilterUri:
-                    share_item_filter = ShareObjectItemRepository.get_share_item_filter_by_uri(
-                        self.session, share_item.attachedDataFilterUri
-                    )
+        s3_datasets_with_common_db: List[S3Dataset] = DatasetRepository.list_all_active_datasets_with_glue_db(
+            session=self.session, glue_db_name=s3_dataset.GlueDatabaseName
+        )
 
-                revoked_item_SM = ShareItemSM(ShareItemStatus.Revoke_Approved.value)
-                new_state = revoked_item_SM.run_transition(ShareObjectActions.Start.value)
-                revoked_item_SM.update_state_single_item(self.session, share_item, new_state)
+        log.info(f'Found {len(s3_datasets_with_common_db)} datasets where same glue database is used')
+        additional_resources_to_lock = [
+            (s3_dataset.datasetUri, S3Dataset.__tablename__)
+            for s3_dataset in s3_datasets_with_common_db
+            if s3_dataset.datasetUri != self.share_data.dataset.datasetUri
+        ]
+        log.info(f'Additional Resources to be locked while revoking glue tables: {additional_resources_to_lock}')
 
-                try:
-                    log.info(f'Revoking access to table: {table.GlueTableName} ')
-                    manager.check_table_exists_in_source_database(share_item, table)
+        try:
+            with ResourceLockRepository.acquire_lock_with_retry(
+                resources=additional_resources_to_lock,
+                session=self.session,
+                acquired_by_uri=self.share_data.share.shareUri,
+                acquired_by_type=self.share_data.share.__tablename__,
+            ):
+                log.info('##### Starting Revoking tables #######')
+                success = True
+                manager = self._initialize_share_manager(self.tables)
+                if not self.tables:
+                    log.info('No tables to revoke. Skipping...')
+                else:
+                    try:
+                        if not S3ShareService.verify_principal_role(self.session, self.share_data.share):
+                            raise PrincipalRoleNotFound(
+                                'process revoked shares',
+                                f'Principal role {self.share_data.share.principalRoleName} is not found. Failed to update LF policy',
+                            )
+                        if None in [
+                            manager.source_account_id,
+                            manager.source_account_region,
+                            manager.source_database_name,
+                        ]:
+                            raise Exception(
+                                'Source account details not initialized properly. Please check if the catalog account is properly onboarded on data.all'
+                            )
+                        manager.initialize_clients()
+                        manager.grant_pivot_role_all_database_permissions_to_shared_database()
+                    except Exception as e:
+                        log.error(f'Failed to process revoked tables due to {e}')
+                        manager.handle_share_failure_for_all_tables(
+                            tables=self.tables, error=e, share_item_status=ShareItemStatus.Revoke_Approved.value
+                        )
+                        return False
 
-                    log.info('Check resource link table exists')
-                    resource_link_name = self._build_resource_link_name(table.GlueTableName, share_item_filter)
-
-                    resource_link_table_exists = manager.check_resource_link_table_exists_in_target_database(
-                        resource_link_name
-                    )
-
-                    if resource_link_table_exists:
-                        log.info('Revoking principal permissions from resource link table')
-                        manager.revoke_principals_permissions_to_resource_link_table(resource_link_name)
-                        log.info('Revoking principal permissions from table in source')
-                        manager.revoke_principals_permissions_to_table_in_source(table, share_item, share_item_filter)
-                        if share_item_filter:
-                            can_delete_resource_link = True
-                        else:
-                            can_delete_resource_link = (
-                                False
-                                if S3ShareObjectRepository.check_other_approved_share_item_table_exists(
-                                    self.session,
-                                    self.share_data.target_environment.environmentUri,
-                                    share_item.itemUri,
-                                    share_item.shareItemUri,
-                                )
-                                else True
+                    for table in self.tables:
+                        log.info(f'Revoking access to table {table.tableUri}/{table.GlueTableName}...')
+                        share_item = ShareObjectRepository.find_sharable_item(
+                            self.session, self.share_data.share.shareUri, table.tableUri
+                        )
+                        share_item_filter = None
+                        if share_item.attachedDataFilterUri:
+                            share_item_filter = ShareObjectItemRepository.get_share_item_filter_by_uri(
+                                self.session, share_item.attachedDataFilterUri
                             )
 
-                        if can_delete_resource_link:
-                            manager.grant_pivot_role_drop_permissions_to_resource_link_table(resource_link_name)
-                            manager.delete_resource_link_table_in_shared_database(resource_link_name)
+                        revoked_item_SM = ShareItemSM(ShareItemStatus.Revoke_Approved.value)
+                        new_state = revoked_item_SM.run_transition(ShareObjectActions.Start.value)
+                        revoked_item_SM.update_state_single_item(self.session, share_item, new_state)
 
-                    if (
-                        self.share_data.share.groupUri != self.share_data.dataset.SamlAdminGroupName
-                        and self.share_data.share.groupUri != self.share_data.dataset.stewards
-                    ):
-                        log.info('Deleting TABLE READ permissions...')
-                        S3ShareService.delete_dataset_table_read_permission(
-                            self.session, self.share_data.share, table.tableUri
+                        try:
+                            log.info(f'Revoking access to table: {table.GlueTableName} ')
+                            manager.check_table_exists_in_source_database(share_item, table)
+
+                            log.info('Check resource link table exists')
+                            resource_link_name = self._build_resource_link_name(table.GlueTableName, share_item_filter)
+
+                            resource_link_table_exists = manager.check_resource_link_table_exists_in_target_database(
+                                resource_link_name
+                            )
+
+                            if resource_link_table_exists:
+                                log.info('Revoking principal permissions from resource link table')
+                                manager.revoke_principals_permissions_to_resource_link_table(resource_link_name)
+                                log.info('Revoking principal permissions from table in source')
+                                manager.revoke_principals_permissions_to_table_in_source(
+                                    table, share_item, share_item_filter
+                                )
+                                if share_item_filter:
+                                    can_delete_resource_link = True
+                                else:
+                                    can_delete_resource_link = (
+                                        False
+                                        if S3ShareObjectRepository.check_other_approved_share_item_table_exists(
+                                            self.session,
+                                            self.share_data.target_environment.environmentUri,
+                                            share_item.itemUri,
+                                            share_item.shareItemUri,
+                                        )
+                                        else True
+                                    )
+
+                                if can_delete_resource_link:
+                                    manager.grant_pivot_role_drop_permissions_to_resource_link_table(resource_link_name)
+                                    manager.delete_resource_link_table_in_shared_database(resource_link_name)
+
+                            if (
+                                self.share_data.share.groupUri != self.share_data.dataset.SamlAdminGroupName
+                                and self.share_data.share.groupUri != self.share_data.dataset.stewards
+                            ):
+                                log.info('Deleting TABLE READ permissions...')
+                                S3ShareService.delete_dataset_table_read_permission(
+                                    self.session, self.share_data.share, table.tableUri
+                                )
+
+                            new_state = revoked_item_SM.run_transition(ShareItemActions.Success.value)
+                            revoked_item_SM.update_state_single_item(self.session, share_item, new_state)
+
+                            ShareStatusRepository.update_share_item_health_status(
+                                self.session, share_item, None, None, share_item.lastVerificationTime
+                            )
+
+                        except Exception as e:
+                            new_state = revoked_item_SM.run_transition(ShareItemActions.Failure.value)
+                            revoked_item_SM.update_state_single_item(self.session, share_item, new_state)
+                            success = False
+
+                            manager.handle_revoke_failure(table=table, error=e)
+
+                    try:
+                        if self.tables:
+                            s3_dataset = DatasetRepository.get_dataset_by_uri(
+                                session=self.session, dataset_uri=self.share_data.dataset.datasetUri
+                            )
+
+                            # Find any share items which exist between the principal and the dataset db.
+                            # Please note - a single db can be used across various dataset. This not only finds share items related to the current share under process but also any other share where the gluedb and the principal is used.
+                            existing_shared_tables_in_shares = (
+                                S3ShareObjectRepository.check_existing_shares_on_items_for_principal(
+                                    session=self.session,
+                                    item_type=ShareableType.Table.value,
+                                    principal=self.share_data.share.principalRoleName,
+                                    database=s3_dataset.GlueDatabaseName,
+                                )
+                            )
+                            log.info(
+                                f'Remaining tables shared on the database: {s3_dataset.GlueDatabaseName} and principal: {self.share_data.share.principalRoleName} = {existing_shared_tables_in_shares}'
+                            )
+
+                            if not existing_shared_tables_in_shares:
+                                log.info('Revoking permissions to target shared database...')
+                                manager.revoke_principals_database_permissions_to_shared_database()
+
+                            share_item_shared_states = ShareStatusRepository.get_share_item_shared_states()
+
+                            # Find all the shares where the database name is used
+                            # Please note - a single db can be used across various dataset ( and also the same db can be used in different environment ). This will fetch all the dataset shares where the glueDB name is used.
+                            existing_shares_with_shared_tables_for_database = (
+                                S3ShareObjectRepository.list_dataset_shares_on_database(
+                                    session=self.session,
+                                    dataset_uri=self.share_data.dataset.datasetUri,
+                                    share_item_shared_states=share_item_shared_states,
+                                    item_type=ShareableType.Table.value,
+                                    database=s3_dataset.GlueDatabaseName,
+                                )
+                            )
+
+                            log.info(
+                                f'Existing shares with database: {s3_dataset.GlueDatabaseName} = {existing_shares_with_shared_tables_for_database}. Skipping deleting shared database'
+                            )
+
+                            if not len(existing_shares_with_shared_tables_for_database):
+                                log.info('Deleting target shared database...')
+                                manager.delete_shared_database_in_target()
+                    except Exception as e:
+                        log.error(
+                            f'Failed to clean-up database permissions or delete shared database {manager.shared_db_name} '
+                            f'due to: {e}'
                         )
+                        success = False
+                    return success
 
-                    new_state = revoked_item_SM.run_transition(ShareItemActions.Success.value)
-                    revoked_item_SM.update_state_single_item(self.session, share_item, new_state)
-
-                    ShareStatusRepository.update_share_item_health_status(
-                        self.session, share_item, None, None, share_item.lastVerificationTime
-                    )
-
-                except Exception as e:
-                    new_state = revoked_item_SM.run_transition(ShareItemActions.Failure.value)
-                    revoked_item_SM.update_state_single_item(self.session, share_item, new_state)
-                    success = False
-
-                    manager.handle_revoke_failure(table=table, error=e)
-
-            try:
-                if self.tables:
-                    existing_shared_tables_in_share = S3ShareObjectRepository.check_existing_shared_items_of_type(
-                        session=self.session, uri=self.share_data.share.shareUri, item_type=ShareableType.Table.value
-                    )
-                    log.info(f'Remaining tables shared in this share object = {existing_shared_tables_in_share}')
-
-                    if not existing_shared_tables_in_share:
-                        log.info('Revoking permissions to target shared database...')
-                        manager.revoke_principals_database_permissions_to_shared_database()
-                    share_item_shared_states = ShareStatusRepository.get_share_item_shared_states()
-                    existing_shares_with_shared_tables_in_environment = (
-                        ShareObjectRepository.list_dataset_shares_with_existing_shared_items(
-                            session=self.session,
-                            dataset_uri=self.share_data.dataset.datasetUri,
-                            share_item_shared_states=share_item_shared_states,
-                            environment_uri=self.share_data.target_environment.environmentUri,
-                            item_type=ShareableType.Table.value,
-                        )
-                    )
-                    if not len(existing_shares_with_shared_tables_in_environment):
-                        log.info('Deleting target shared database...')
-                        manager.delete_shared_database_in_target()
-            except Exception as e:
-                log.error(
-                    f'Failed to clean-up database permissions or delete shared database {manager.shared_db_name} '
-                    f'due to: {e}'
-                )
-                success = False
-            return success
+        except ResourceLockTimeout as timeout:
+            log.error(
+                f'Resource locking timed out while locking additional resources: {additional_resources_to_lock} for revoking glue tables: {self.tables} due to: {timeout}'
+            )
+            raise timeout
 
     def verify_shares(self) -> bool:
         log.info('##### Verifying tables #######')
@@ -553,13 +612,17 @@ class ProcessLakeFormationShare(SharesProcessorInterface):
                 log.info('Revoking permissions to target shared database...')
                 execute_and_suppress_exception(func=manager.revoke_principals_database_permissions_to_shared_database)
                 share_item_shared_states = ShareStatusRepository.get_share_item_shared_states()
+                s3_dataset = DatasetRepository.get_dataset_by_uri(
+                    session=self.session, dataset_uri=self.share_data.dataset.datasetUri
+                )
+
                 existing_shares_with_shared_tables_in_environment = (
-                    ShareObjectRepository.list_dataset_shares_with_existing_shared_items(
+                    S3ShareObjectRepository.list_dataset_shares_on_database(
                         session=self.session,
                         dataset_uri=self.share_data.dataset.datasetUri,
                         share_item_shared_states=share_item_shared_states,
-                        environment_uri=self.share_data.target_environment.environmentUri,
                         item_type=ShareableType.Table.value,
+                        database=s3_dataset.GlueDatabaseName,
                     )
                 )
                 if not len(existing_shares_with_shared_tables_in_environment):

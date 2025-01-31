@@ -400,7 +400,10 @@ class SharingService:
             source_env_group=data[4],
             env_group=data[5],
         )
+        status_list = [status] if status is not None else []
+        healthStatus_list = [healthStatus] if healthStatus is not None else []
+
         share_items = ShareObjectRepository.get_all_share_items_in_share(
-            session=session, share_uri=share_uri, status=[status], healthStatus=[healthStatus]
+            session=session, share_uri=share_uri, status=status_list, healthStatus=healthStatus_list
         )
         return share_data, share_items
