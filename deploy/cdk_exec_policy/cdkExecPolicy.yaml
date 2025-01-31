@@ -155,21 +155,39 @@ Resources:
           - Sid: KMS
             Effect: Allow
             Action:
-              - 'kms:CreateKey'
               - 'kms:CreateAlias'
               - 'kms:CreateGrant'
+              - 'kms:DescribeKey'
               - 'kms:Decrypt'
-              - 'kms:Describe*'
+              - 'kms:GenerateDataKey'
+              - 'kms:GenerateDataKeyPair'
+              - 'kms:GenerateDataKeyPairWithoutPlaintext'
+              - 'kms:GenerateDataKeyWithoutPlaintext'
+              - 'kms:GenerateMac'
+              - 'kms:ListGrants'
+              - 'kms:ListKeyPolicies'
+              - 'kms:ListKeyRotations'
+              - 'kms:ListResourceTags'
               - 'kms:EnableKeyRotation'
               - 'kms:Encrypt'
-              - 'kms:Get*'
-              - 'kms:List*'
-              - 'kms:Generate*'
               - 'kms:PutKeyPolicy'
               - 'kms:DeleteAlias'
               - 'kms:ScheduleKeyDeletion'
               - 'kms:*Tag*'
-            Resource: '*'
+            Resource: 
+               - 'arn:aws:kms:*:*:key/*'
+               - 'arn:aws:kms:*:*:alias/*'
+
+          - Sid: KMS2
+            Effect: Allow
+            Action:
+              - 'kms:CreateKey'
+              - 'kms:DescribeCustomKeyStores'
+              - 'kms:ListAliases'
+              - 'kms:ListKeys'
+              - 'kms:ListRetirableGrants'
+              - 'kms:GenerateRandom'
+            Resource: '*' 
 
           - Sid: Lambda
             Effect: Allow
