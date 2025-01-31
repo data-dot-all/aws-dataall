@@ -681,6 +681,8 @@ class PipelineStack(Stack):
                 with_approval_tests=target_env.get('with_approval_tests', False),
                 allowed_origins=target_env.get('allowed_origins', '*'),
                 log_retention_duration=self.log_retention_duration,
+                deploy_dms_stack=target_env.get('aurora_migration_enabled', False),
+                old_aurora_connection_secret_arn=target_env.get('old_aurora_connection_secret_arn', ''),
             )
         )
         return backend_stage

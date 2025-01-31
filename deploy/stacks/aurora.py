@@ -7,6 +7,7 @@ from aws_cdk import (
     aws_ssm as ssm,
     aws_kms,
     aws_ec2,
+    aws_iam as iam,
 )
 
 from .pyNestedStack import pyNestedClass
@@ -60,33 +61,65 @@ class AuroraServerlessStack(pyNestedClass):
         )
 
         db_credentials = rds.DatabaseSecret(
-            self, f'{resource_prefix}-{envname}-aurora-db', username='dtaadmin', encryption_key=key
+            self, f'{resource_prefix}-{envname}-aurora-v2-db', username='dtaadmin', encryption_key=key
         )
 
         database_name = f'{envname}db'
 
-        database = rds.ServerlessCluster(
+        monitoring_role = iam.Role(
+            self,
+            'RDSMonitoringRole',
+            role_name='dataall-rds-monitoring-role',
+            assumed_by=iam.ServicePrincipal('monitoring.rds.amazonaws.com'),
+        )
+
+        monitoring_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=['logs:CreateLogGroup', 'logs:PutRetentionPolicy'],
+                effect=iam.Effect.ALLOW,
+                resources=['arn:aws:logs:*:*:log-group:RDS*'],
+            )
+        )
+
+        monitoring_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=['logs:CreateLogStream', 'logs:PutLogEvents', 'logs:DescribeLogStreams', 'logs:GetLogEvents'],
+                effect=iam.Effect.ALLOW,
+                resources=['arn:aws:logs:*:*:log-group:RDS*:log-stream:*'],
+            )
+        )
+
+        database = rds.DatabaseCluster(
             self,
             f'AuroraDatabase{envname}',
-            engine=rds.DatabaseClusterEngine.aurora_postgres(version=rds.AuroraPostgresEngineVersion.VER_13_12),
+            engine=rds.DatabaseClusterEngine.aurora_postgres(version=rds.AuroraPostgresEngineVersion.VER_15_4),
             deletion_protection=True,
-            cluster_identifier=f'{resource_prefix}-{envname}-db',
+            writer=rds.ClusterInstance.serverless_v2('writer'),
+            readers=[
+                # will be put in promotion tier 1 and will scale with the writer
+                rds.ClusterInstance.serverless_v2('reader1', scale_with_writer=True),
+                # will be put in promotion tier 2 and will not scale with the writer
+                rds.ClusterInstance.serverless_v2('reader2'),
+            ],
+            cluster_identifier=f'{resource_prefix}-{envname}-db-v2',
             parameter_group=rds.ParameterGroup.from_parameter_group_name(
-                self, 'ParameterGroup', 'default.aurora-postgresql13'
+                self, 'ParameterGroup', 'default.aurora-postgresql15'
             ),
-            enable_data_api=True,
+            backup=rds.BackupProps(
+                retention=Duration.days(30),
+            )
+            if prod_sizing
+            else None,
             default_database_name=database_name,
-            backup_retention=Duration.days(30) if prod_sizing else None,
             subnet_group=db_subnet_group,
             vpc=vpc,
             credentials=rds.Credentials.from_secret(db_credentials),
             security_groups=[db_security_group],
-            scaling=rds.ServerlessScalingOptions(
-                auto_pause=Duration.days(1) if prod_sizing else Duration.minutes(10),
-                max_capacity=rds.AuroraCapacityUnit.ACU_16 if prod_sizing else rds.AuroraCapacityUnit.ACU_8,
-                min_capacity=rds.AuroraCapacityUnit.ACU_4 if prod_sizing else rds.AuroraCapacityUnit.ACU_2,
-            ),
+            serverless_v2_min_capacity=4 if prod_sizing else 2,
+            serverless_v2_max_capacity=16 if prod_sizing else 8,
             storage_encryption_key=key,
+            monitoring_interval=Duration.seconds(1),
+            monitoring_role=monitoring_role,
         )
         database.add_rotation_single_user(automatically_after=Duration.days(90))
 
@@ -180,3 +213,6 @@ class AuroraServerlessStack(pyNestedClass):
 
         self.cluster = database
         self.aurora_sg = db_security_group
+        self.db_credentials = db_credentials
+        self.kms_key = key
+        self.db_name = database_name

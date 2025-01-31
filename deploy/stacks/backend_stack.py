@@ -26,6 +26,7 @@ from .sqs import SqsStack
 from .trigger_function_stack import TriggerFunctionStack
 from .vpc import VpcStack
 from .iam_utils import get_tooling_account_external_id
+from .dms_task import DMSTaskStack
 
 
 class BackendStack(Stack):
@@ -62,6 +63,8 @@ class BackendStack(Stack):
         with_approval_tests=False,
         allowed_origins='*',
         log_retention_duration=None,
+        deploy_dms_stack=False,
+        old_aurora_connection_secret_arn=None,
         **kwargs,
     ):
         super().__init__(scope, id, **kwargs)
@@ -347,6 +350,19 @@ class BackendStack(Stack):
             env_var_encryption_key=lambda_env_key,
             **kwargs,
         )
+
+        if deploy_dms_stack:
+            self.dms_stack = DMSTaskStack(
+                self,
+                'DMSTaskStack',
+                secret_id_aurora_v1=old_aurora_connection_secret_arn,
+                region=self.region,
+                secret_id_aurora_v2=aurora_stack.db_credentials.secret_arn,
+                kms_key_for_secret_arn=aurora_stack.kms_key.key_arn,
+                database_name=aurora_stack.db_name,
+                vpc_security_group=db_migrations.security_group.security_group_id,
+                replication_subnet_group_identifier=f'default-{vpc.vpc_id}',
+            )
 
         self.monitoring_stack = MonitoringStack(
             self,
